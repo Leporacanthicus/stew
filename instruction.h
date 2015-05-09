@@ -27,7 +27,7 @@ private:
 
 enum AddrMode
 {
-    Dir,			/* Rn */
+    Direct,			/* Rn */
     Indir,			/* [Rn] */
     IndirAuotInc,		/* [Rn]+ */
     AutoDecIndir,		/* -[Rn] */
@@ -44,6 +44,7 @@ enum InstrKind
     SUB,
     SBC,
     MUL,
+    DIV,
     AND,
     OR,
     XOR,
@@ -57,12 +58,12 @@ enum InstrKind
     ROL,
 
     /* Flow control unconditional  - ignores dest operands and operand size */
-    JSR = 16,
+    JSR = 32,
     RET,
     JMP,
     
     /* Branch instructions */
-    BEQ = 32,
+    BEQ = 48,
     BNE,
     BLT,
     BGT,
@@ -87,28 +88,34 @@ enum InstrKind
 
 class Instruction
 {
+public:
+    Instruction() { value.word = 0; }
     union Instr
     {
 	struct	
 	{
-	    InstrKind    op:8;
-	    union	       /* Regulard two operands */
-	    {		
-		OperandSize  size:2;
-		uint32_t     unused:10;
-		AddrMode     destMode:2;
-	        AddrMode     srcMode:2;
-		RegName      dest:8;
-		RegName      source:8;
-	    };
-	    union		/* Brand instructions */
+	    union
 	    {
-		int32_t     branch:24;
+		struct		/* Regular two operands */
+		{		
+		    RegName      source:8;
+		    RegName      dest:8;
+		    AddrMode     srcMode:2;
+		    AddrMode     destMode:2;
+		    uint32_t     unused:2;
+		    OperandSize  size:2;
+		    InstrKind    op:8;
+		};
+		struct		/* Brand instructions */
+		{
+		    InstrKind    dummy_op:8;
+		    int32_t      branch:24;
+		};
 	    };
 	};
-
 	uint32_t word;
     };
+    Instr value;
 };
 
 #endif

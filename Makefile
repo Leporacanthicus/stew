@@ -1,5 +1,5 @@
 TARGETS = asm
-SOURCES = asm.cpp
+SOURCES = asm.cpp lineparser.cpp
 OBJECTS = $(patsubst %.cpp,%.o,${SOURCES})
 
 CXX = clang++
@@ -7,8 +7,8 @@ CXXFLAGS = -g -Wall -Werror -Wextra -std=c++11
 
 all: .depends ${TARGETS}
 
-asm: asm.o
-	${CXX} -o $@ $<
+asm: asm.o lineparser.o
+	${CXX} -o $@ $^
 
 
 clean:
