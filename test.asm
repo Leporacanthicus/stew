@@ -5,6 +5,8 @@ label:
 	mov	(r2)+,r5
 	mov	r4,-(sp)
 	mov	(pc)+,r8
+	mov 	#42, r1
+	mov 	#4711, r2
 	mov.l	r10,r11
 	mov.w	r12,r13
 	mov.b	r14,r15

@@ -29,7 +29,7 @@ enum AddrMode
 {
     Direct,			/* Rn */
     Indir,			/* [Rn] */
-    IndirAuotInc,		/* [Rn]+ */
+    IndirAutoInc,		/* [Rn]+ */
     AutoDecIndir,		/* -[Rn] */
 };
 

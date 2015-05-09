@@ -173,8 +173,8 @@ void AddLabel(const std::string& name, size_t addr)
 	Error("Label already defined: " + name);
 	return;
     }
-    LabelInfo li;
 
+    LabelInfo li;
     li.name = name;
     li.addr = addr;
     li.needBP = false;
@@ -204,6 +204,7 @@ void AddLabel(const std::string& name, size_t addr)
 
 bool ParseLabel(LineParser& lp, LabelInfo& label)
 {
+    lp.Save();
     std::string name = lp.GetWord();
     if (name != "")
     {
@@ -211,15 +212,14 @@ bool ParseLabel(LineParser& lp, LabelInfo& label)
 	if (it != labels.end())
 	{
 	    label = it->second;
-	    return true;
 	}
 	else
 	{
 	    label.name = name;
 	    label.addr = 0;
 	    label.needBP = true;
-	    return true;
 	}
+	return true;
     }
     lp.Restore();
     return false;
@@ -297,7 +297,7 @@ bool ParseArg(LineParser& lp, ArgInfo& info)
 	}
 	else if (lp.Accept('+'))
 	{
-	    info.mode = IndirAuotInc;
+	    info.mode = IndirAutoInc;
 	}
 	return true;
     }
@@ -309,12 +309,25 @@ bool ParseArg(LineParser& lp, ArgInfo& info)
 	return true;
     }
     
+    if (lp.Accept('#'))
+    {
+	std::string w = lp.GetWord();
+	std::cout << "w=" << w << std::endl;
+	int value = std::stoi(w);
+	
+	info.data = value;
+	info.useData = true;
+	info.mode = IndirAutoInc;
+	info.reg = PC;
+	return true;
+    }
+
     LabelInfo label;
     if (ParseLabel(lp, label))
     {
 	info.useData = true;
 	info.data = label.addr;
-	info.mode = IndirAuotInc;
+	info.mode = IndirAutoInc;
 	info.reg = PC;
 	if (label.needBP)
 	{
