@@ -108,8 +108,8 @@ public:
 		};
 		struct		/* Brand instructions */
 		{
-		    InstrKind    dummy_op:8;
 		    int32_t      branch:24;
+		    InstrKind    dummy_op:8;
 		};
 	    };
 	};

@@ -5,10 +5,16 @@ label:
 	mov	(r2)+,r5
 	mov	r4,-(sp)
 	mov	(pc)+,r8
-	mov	r10,r11
-	mov	r12,r13
-	mov	r14,r15
+	mov.l	r10,r11
+	mov.w	r12,r13
+	mov.b	r14,r15
 
+	jsr	label2
+
+	sub	r0,r1
+	bne	label
+	
+label2:	
 	add	r0,r1
 	sub	r1,r0
 	mul	r1,r0
@@ -28,3 +34,4 @@ label:
 	adc	r9,r10
 	sbc	r11,r12
 	
+	ret
