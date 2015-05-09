@@ -1,6 +1,8 @@
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
 
+#include <cstdint>
+
 enum RegName
 {
     R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15,
@@ -17,7 +19,7 @@ enum OperandSize
 
 class Register
 {
-    Register(uint32_t v) value(v) : {}
+    Register(uint32_t v) : value(v) {}
     uint32_t& Value() { return value; }
 private:
     uint32_t value;
@@ -58,7 +60,6 @@ enum InstrKind
     JSR = 16,
     RET,
     JMP,
-    EMT,  			/* Emulation trap - call OS */
     
     /* Branch instructions */
     BEQ = 32,
@@ -78,6 +79,9 @@ enum InstrKind
     BVC,			/* Overflow clear */
     BVS,			/* Overflow set */
 
+    /* Special type instructions */
+    EMT = 64,  			/* Emulation trap - call OS */
+
     MAX_INST = 255
 };
 
@@ -94,8 +98,8 @@ class Instruction
 		uint32_t     unused:10;
 		AddrMode     destMode:2;
 	        AddrMode     srcMode:2;
-		Register     dest:8;
-		Register     source:8;
+		RegName      dest:8;
+		RegName      source:8;
 	    };
 	    union		/* Brand instructions */
 	    {
@@ -106,3 +110,5 @@ class Instruction
 	uint32_t word;
     };
 };
+
+#endif

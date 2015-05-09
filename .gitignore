@@ -1,3 +1,7 @@
+# Linux style executables: No dot = executable, with a dot not executables.
+*
+!*.*
+!Makefile
 # Compiled Object files
 *.slo
 *.lo
@@ -26,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+#Temporary files:
+*~
+.depends
+
