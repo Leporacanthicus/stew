@@ -90,7 +90,7 @@ bool QuitCmd::DoIt(LineParser& lp)
 
 static void ShowPC()
 {
-    std::cout << "PC=" << cpu->RegValue(PC) << std::endl;
+    std::cout << "PC=" << std::hex << cpu->RegValue(PC) << std::endl;
 }
 
 class StepCmd : public CmdClass
@@ -122,9 +122,6 @@ public:
 
 static std::string RegStr(int i)
 {
-    
-
-
     if (i == 15) return "pc";
     if (i == 14) return "sp";
     std::string name = "r";
@@ -155,6 +152,21 @@ bool RegsCmd::DoIt(LineParser& lp)
     return false;
 }
 
+class RunCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "RUN - Execute program";
+	}
+};
+
+bool RunCmd::DoIt(LineParser& lp)
+{
+    while(cpu->RunOneInstr());
+    return false;
+}
 
 void InitCommands()
 {
@@ -165,7 +177,7 @@ void InitCommands()
     cmdMap["step"] = new StepCmd;
     cmdMap["s"]    = cmdMap["step"];
     cmdMap["regs"] = new RegsCmd;
-//    cmdMap["run"]  = new RunCmd;
+    cmdMap["run"]  = new RunCmd;
 }
 
 bool Command(LineParser& lp)
