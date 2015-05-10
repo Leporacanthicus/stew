@@ -52,6 +52,7 @@ InstrEntry instructions[] =
     INSTR(JSR,  OneArgType),
     INSTR(RET,  NoArgsType),
     INSTR(JMP,  OneArgType),
+    INSTR(HLT,  NoArgsType),
     
     INSTR(BEQ,  BranchType),
     INSTR(BNE,  BranchType),

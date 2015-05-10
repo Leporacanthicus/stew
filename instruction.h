@@ -73,6 +73,7 @@ enum InstrKind
     JSR = 32,
     RET,
     JMP,
+    HLT,			/* Stop execution */
     
     /* Branch instructions */
     BEQ = 48,
