@@ -7,7 +7,8 @@ enum RegName
 {
     R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15,
     SP = R14,
-    PC = R15, 
+    PC = R15,
+    MaxReg,
 };
 
 enum OperandSize
@@ -19,10 +20,21 @@ enum OperandSize
 
 class Register
 {
-    Register(uint32_t v) : value(v) {}
+public:
+    Register(uint32_t v = 0) : value(v) {}
     uint32_t& Value() { return value; }
+    void Value(uint32_t v) { value = v; }
 private:
     uint32_t value;
+};
+
+class FlagRegister
+{
+public:
+    unsigned n:1;
+    unsigned z:1;
+    unsigned v:1;
+    unsigned c:1;
 };
 
 enum AddrMode
