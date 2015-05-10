@@ -41,7 +41,7 @@ bool LoadCmd::DoIt(LineParser& lp)
     uint32_t addr = 0;
     while(f >> std::hex >> v)
     {
-	cpu->WriteMem(addr, v);
+	cpu->WriteMem(addr, v, 4);
 	addr += 4;
     }
 

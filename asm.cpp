@@ -230,7 +230,6 @@ bool ParseLabel(LineParser& lp, LabelInfo& label)
 bool ParseRegister(LineParser& lp, RegName& reg)
 {
     lp.Save();
-    lp.SkipSpaces();
     if (lp.Accept('r'))
     {
 	char ch = lp.Get();
@@ -246,6 +245,10 @@ bool ParseRegister(LineParser& lp, RegName& reg)
 		{
 		    n += ch - '0';
 		    lp.Get();
+		}
+		else
+		{
+		    n = 1;
 		}
 	    }
 	    if (lp.IsSeparator(lp.Peek()))
@@ -279,6 +282,7 @@ bool ParseArg(LineParser& lp, ArgInfo& info)
 {
     bool maybeAutoDecr = false;
     RegName rn;
+    lp.SkipSpaces();
     if (lp.Accept('-'))
     {
 	maybeAutoDecr = true;
@@ -467,12 +471,75 @@ void ParseBranch(LineParser& lp, InstrKind op)
     }
 }
 
-void ParseEmt(LineParser& lp, InstrKind op)
+bool ParseNum(LineParser& lp, uint32_t& value)
 {
     std::string w = lp.GetWord();
-    int n = std::stoi(w);
+    value = std::stoi(w);
+    return true;
+}
 
-    StoreInstr(op, n);
+void ParseEmt(LineParser& lp, InstrKind op)
+{
+    uint32_t n = 0;
+    if (ParseNum(lp, n))
+    {	
+	StoreInstr(op, static_cast<int>(n));
+    }
+}
+
+void ParseDb(LineParser& lp)
+{
+    std::vector<uint8_t> bytes;
+    char ch;
+    while(!lp.Done())
+    {
+	if (lp.Accept('"'))
+	{
+	    while(!lp.Accept('"'))
+	    {
+		ch = lp.Get();
+		bytes.push_back(static_cast<uint8_t>(ch));
+	    }
+	}
+	else
+	{
+	    if (lp.Peek() == ',')
+	    {
+		lp.Get();
+	    }
+	    uint32_t n = 0;
+	    if (!ParseNum(lp, n))
+	    {
+		lp.Error("Expected number here");
+		return;
+	    }
+	    bytes.push_back(static_cast<uint8_t>(n));
+	}
+    }
+    size_t size = (bytes.size() + 3) / 4;
+    uint32_t words[size];
+    memcpy(words, bytes.data(), bytes.size());
+    for(size_t i = 0; i < size; i++)
+    {
+	Instruction instr;
+	instr.value.word = words[i];
+	code.push_back(instr);
+    }
+}
+
+bool ParsePseudoOp(LineParser& lp)
+{
+    if (!lp.Accept('.'))
+    {
+	return false;
+    }
+    std::string op = lp.GetWord();
+    if (op == "db")
+    {
+	ParseDb(lp);
+	return true;
+    }
+    return false;
 }
 
 void Parse(const std::string& line)
@@ -530,7 +597,10 @@ void Parse(const std::string& line)
 		return;
 	    }
 	}
-	// TODO: Add pseudo-instructions.
+	else if (ParsePseudoOp(lp))
+	{
+	    continue;
+	}
 	else
 	{
 	    lp.Error("Invalid instruction");

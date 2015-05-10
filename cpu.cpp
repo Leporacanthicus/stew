@@ -1,6 +1,7 @@
 #include <iostream>
 #include "cpu.h"
 #include "memory.h"
+#include "emt.h"
 
 CPU::CPU(Memory& mem, uint32_t start) : memory(mem)
 {
@@ -13,41 +14,56 @@ void CPU::UpdateFlags(uint32_t v)
     flags.n = (v & 0x80000000);
 }
 
-uint32_t CPU::GetValue(AddrMode mode, RegName reg)
+static uint32_t SizeFromOpSize(OperandSize opsize)
 {
+    switch(opsize)
+    {
+    case Op8:
+	return 1;
+    case Op16:
+	return 2;
+    case Op32:
+	return 4;
+    }
+}
+
+uint32_t CPU::GetValue(AddrMode mode, RegName reg, OperandSize opsize)
+{
+    size_t size = SizeFromOpSize(opsize);
     switch(mode)
     {
     case Direct:
 	return registers[reg].Value();
 
     case Indir:
-	return ReadMem(registers[reg].Value());
+	return ReadMem(registers[reg].Value(), size);
 
     case IndirAutoInc:
     {
-	uint32_t v = ReadMem(registers[reg].Value());
-	registers[reg] += 4;
+	uint32_t v = ReadMem(registers[reg].Value(), size);
+	registers[reg] += SizeFromOpSize(opsize);
 	return v;
     }
     case AutoDecIndir:
-	registers[reg] -= 4;
-	return ReadMem(registers[reg].Value());
+	registers[reg] -= SizeFromOpSize(opsize);
+	return ReadMem(registers[reg].Value(), size);
     }
     return 0xdeadbeef;
 }
 
 uint32_t CPU::GetSourceValue(Instruction instr)
 {
-    return GetValue(instr.value.srcMode, instr.value.source);
+    return GetValue(instr.value.srcMode, instr.value.source, instr.value.size);
 }
 
 uint32_t CPU::GetDestValue(Instruction instr)
 {
-    return GetValue(instr.value.destMode, instr.value.dest);
+    return GetValue(instr.value.destMode, instr.value.dest, instr.value.size);
 }
 
 void CPU::StoreDestValue(Instruction instr, uint32_t value)
 {
+    size_t size = SizeFromOpSize(instr.value.size);
     switch(instr.value.destMode)
     {
     case Direct:
@@ -55,17 +71,27 @@ void CPU::StoreDestValue(Instruction instr, uint32_t value)
 	break;
 
     case Indir:
-	WriteMem(registers[instr.value.dest].Value(), value);
+	WriteMem(registers[instr.value.dest].Value(), value, size);
 	break;
 
     case IndirAutoInc:
-	WriteMem(registers[instr.value.dest].Value(), value);
-	registers[instr.value.dest] += 4;
+	WriteMem(registers[instr.value.dest].Value(), value, size);
+	registers[instr.value.dest] += size;
 	break;
 	
     case AutoDecIndir:
-	registers[instr.value.dest] -= 4;
-	WriteMem(registers[instr.value.dest].Value(), value);
+	registers[instr.value.dest] -= size;
+	WriteMem(registers[instr.value.dest].Value(), value, size);
+	break;
+    }
+}
+
+void CPU::Emt(uint32_t num)
+{
+    switch(num)
+    {
+    case PrintChar:
+	std::cout << (char)registers[R0].Value() << std::flush;
 	break;
     }
 }
@@ -107,11 +133,26 @@ bool CPU::RunOneInstr()
 	UpdateFlags(v);
 	break;
     }
+    case JMP:
+    {
+	uint32_t v = GetSourceValue(instr);
+	registers[PC].Value(v);
+	break;
+    }
     case BNE:
 	if (!flags.z)
 	{
 	    registers[PC] += instr.value.branch;
 	}
+	break;
+    case BEQ:
+	if (flags.z)
+	{
+	    registers[PC] += instr.value.branch;
+	}
+	break;
+    case EMT:
+	Emt(instr.value.branch);
 	break;
     default:
 	std::cerr << "Not yet impelemented function at: "
