@@ -7,27 +7,37 @@ CPU::CPU(Memory& mem, uint32_t start) : memory(mem)
     registers[PC].Value(start);
 }
 
-uint32_t CPU::GetSourceValue(Instruction instr)
+uint32_t CPU::GetValue(AddrMode mode, RegName reg)
 {
-    switch(instr.value.srcMode)
+    switch(mode)
     {
     case Direct:
-	return registers[instr.value.source].Value();
+	return registers[reg].Value();
 
     case Indir:
-	return ReadMem(registers[instr.value.source].Value());
+	return ReadMem(registers[reg].Value());
 
     case IndirAutoInc:
     {
-	uint32_t v = ReadMem(registers[instr.value.source].Value());
-	registers[instr.value.source] += 4;
+	uint32_t v = ReadMem(registers[reg].Value());
+	registers[reg] += 4;
 	return v;
     }
     case AutoDecIndir:
-	registers[instr.value.source] -= 4;
-	return ReadMem(registers[instr.value.source].Value());
+	registers[reg] -= 4;
+	return ReadMem(registers[reg].Value());
     }
     return 0xdeadbeef;
+}
+
+uint32_t CPU::GetSourceValue(Instruction instr)
+{
+    return GetValue(instr.value.srcMode, instr.value.source);
+}
+
+uint32_t CPU::GetDestValue(Instruction instr)
+{
+    return GetValue(instr.value.destMode, instr.value.dest);
 }
 
 void CPU::StoreDestValue(Instruction instr, uint32_t value)
@@ -72,8 +82,27 @@ bool CPU::RunOneInstr()
 	StoreDestValue(instr, v);
 	break;
     }
+    case ADD:
+    {
+	uint32_t v1 = GetSourceValue(instr);
+	uint32_t v2 = GetDestValue(instr);
+	uint32_t v = v1 + v2;
+	StoreDestValue(instr, v);
+	break;
+    }
+    case SUB:
+    {
+	uint32_t v1 = GetSourceValue(instr);
+	uint32_t v2 = GetDestValue(instr);
+	uint32_t v = v2 - v1;
+	StoreDestValue(instr, v);
+	break;
+    }
     default:
-	std::cerr << "Not yet impelemented function" << std::endl;
+	std::cerr << "Not yet impelemented function at: "
+		  << std::hex << registers[PC].Value()
+		  << std::endl;
+	std::cerr << "Instr = " << instr.value.word << std::endl;
 	break;
     }
     return true;

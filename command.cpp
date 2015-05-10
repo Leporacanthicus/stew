@@ -1,6 +1,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 #include <map>
 #include "command.h"
@@ -34,6 +35,7 @@ bool LoadCmd::DoIt(LineParser& lp)
 	lp.Error("Expected filename to be given");
 	return false;
     }
+    
     std::ifstream f(file);
     uint32_t v;
     uint32_t addr = 0;
@@ -43,6 +45,7 @@ bool LoadCmd::DoIt(LineParser& lp)
 	addr += 4;
     }
 
+    std::cout << "Loaded " << addr << " bytes" << std::endl;
     return false;
 }
 
@@ -85,21 +88,73 @@ bool QuitCmd::DoIt(LineParser& lp)
     return true;
 }
 
+static void ShowPC()
+{
+    std::cout << "PC=" << cpu->RegValue(PC) << std::endl;
+}
+
 class StepCmd : public CmdClass
 {
 public:
     bool DoIt(LineParser& lp) override;
     std::string Description() override
 	{
-	    return  "STEP - Show this message";
+	    return  "STEP - Step one instruction";
 	}
 };
 
 bool StepCmd::DoIt(LineParser& lp)
 {
     cpu->RunOneInstr();
+    ShowPC();
     return false;
 }
+
+class RegsCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "REGS - Show register values";
+	}
+};
+
+static std::string RegStr(int i)
+{
+    
+
+
+    if (i == 15) return "pc";
+    if (i == 14) return "sp";
+    std::string name = "r";
+    if (i >= 10)
+    {
+	name += "1";
+	i -= 10;
+    }
+    name += '0' + i;
+    return name;
+}
+
+bool RegsCmd::DoIt(LineParser& lp)
+{
+    int count = 0;
+    for(int i = R0; i <= PC; i++)
+    {
+	std::cout << std::setw(3) << std::setfill(' ') << RegStr(i) << ": "
+		  << std::hex << std::setw(8) << std::setfill('0')
+		  << cpu->RegValue((RegName)i) << " ";
+	count++;
+	if (count == 4)
+	{
+	    count = 0;
+	    std::cout << std::endl;
+	}
+    }
+    return false;
+}
+
 
 void InitCommands()
 {
@@ -108,6 +163,8 @@ void InitCommands()
     cmdMap["quit"] = new QuitCmd("quit");
     cmdMap["exit"] = new QuitCmd("exit");
     cmdMap["step"] = new StepCmd;
+    cmdMap["s"]    = cmdMap["step"];
+    cmdMap["regs"] = new RegsCmd;
 //    cmdMap["run"]  = new RunCmd;
 }
 
