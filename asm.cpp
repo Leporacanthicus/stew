@@ -312,7 +312,6 @@ bool ParseArg(LineParser& lp, ArgInfo& info)
     if (lp.Accept('#'))
     {
 	std::string w = lp.GetWord();
-	std::cout << "w=" << w << std::endl;
 	int value = std::stoi(w);
 	
 	info.data = value;
@@ -466,6 +465,14 @@ void ParseBranch(LineParser& lp, InstrKind op)
     }
 }
 
+void ParseEmt(LineParser& lp, InstrKind op)
+{
+    std::string w = lp.GetWord();
+    int n = std::stoi(w);
+
+    StoreInstr(op, n);
+}
+
 void Parse(const std::string& line)
 {
     AsmLineParser lp(line);
@@ -509,6 +516,11 @@ void Parse(const std::string& line)
 	    case BranchType:
 	    {
 		ParseBranch(lp, e.op);
+		break;
+	    }
+	    case EmtType:
+	    {
+		ParseEmt(lp, e.op);
 		break;
 	    }
 	    default:

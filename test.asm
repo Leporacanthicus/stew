@@ -13,6 +13,8 @@ label:
 
 	jsr	label2
 
+	emt	1
+
 	sub	r0,r1
 	bne	label
 	
