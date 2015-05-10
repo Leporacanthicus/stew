@@ -1,16 +1,18 @@
 TARGETS = asm stew
-SOURCES = asm.cpp lineparser.cpp stew.cpp
+SOURCES = asm.cpp lineparser.cpp stew.cpp memory.cpp cpu.cpp command.cpp
 OBJECTS = $(patsubst %.cpp,%.o,${SOURCES})
 
 CXX = clang++
-CXXFLAGS = -g -Wall -Werror -Wextra -Wno-unused-private-field -std=c++11
+WARNINGS = -Wall -Werror -Wextra -Wno-unused-private-field \
+	-Wno-unused-parameter
+CXXFLAGS = -g -std=c++11 ${WARNINGS}
 
 all: .depends ${TARGETS}
 
 asm: asm.o lineparser.o
 	${CXX} -o $@ $^
 
-stew: stew.o lineparser.o
+stew: stew.o lineparser.o cpu.o memory.o command.o
 	${CXX} -o $@ $^
 
 clean:

@@ -154,7 +154,7 @@ void AsmLineParser::ErrOutput(const std::string& msg)
 bool FindInstruction(const std::string& instr, InstrEntry& e)
 {
     std::string str = instr;
-    std::transform(str.begin(), str.end(), str.begin(), ::toupper);    
+    std::transform(str.begin(), str.end(), str.begin(), ::toupper);
     for(auto x : instructions)
     {
 	if (x.name == str)
