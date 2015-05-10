@@ -22,6 +22,9 @@ public:
 	return instr;
     }
 
+    uint32_t GetSourceValue(Instruction instr);
+    void StoreDestValue(Instruction instr, uint32_t value);
+
 private:
     Memory& memory;
     Register registers[MaxReg];
