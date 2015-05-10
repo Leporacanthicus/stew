@@ -40,6 +40,7 @@ bool LoadCmd::DoIt(LineParser& lp)
     while(f >> std::hex >> v)
     {
 	cpu->WriteMem(addr, v);
+	addr += 4;
     }
 
     return false;
@@ -84,12 +85,30 @@ bool QuitCmd::DoIt(LineParser& lp)
     return true;
 }
 
+class StepCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "STEP - Show this message";
+	}
+};
+
+bool StepCmd::DoIt(LineParser& lp)
+{
+    cpu->RunOneInstr();
+    return false;
+}
+
 void InitCommands()
 {
     cmdMap["load"] = new LoadCmd;
     cmdMap["help"] = new HelpCmd;
     cmdMap["quit"] = new QuitCmd("quit");
     cmdMap["exit"] = new QuitCmd("exit");
+    cmdMap["step"] = new StepCmd;
+//    cmdMap["run"]  = new RunCmd;
 }
 
 bool Command(LineParser& lp)

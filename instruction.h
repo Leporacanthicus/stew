@@ -24,6 +24,7 @@ public:
     Register(uint32_t v = 0) : value(v) {}
     uint32_t& Value() { return value; }
     void Value(uint32_t v) { value = v; }
+    Register& operator+=(uint32_t v) { value += v; return *this; }
 private:
     uint32_t value;
 };

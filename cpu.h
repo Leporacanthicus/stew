@@ -8,12 +8,19 @@ class CPU
 {
 public:
     CPU(Memory& mem, uint32_t start);
-    void RunOneInstr();
+    bool RunOneInstr();
     void WriteMem(uint32_t addr, uint32_t value)
     {
 	memory.Write(addr, value);
     }
     uint32_t ReadMem(uint32_t addr) { return memory.Read(addr); }
+    Instruction Fetch()
+    {
+	Instruction instr;
+	instr.value.word = ReadMem(registers[PC].Value());
+	registers[PC] += 4;
+	return instr;
+    }
 
 private:
     Memory& memory;
