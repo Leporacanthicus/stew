@@ -42,24 +42,24 @@ uint32_t CPU::GetDestValue(Instruction instr)
 
 void CPU::StoreDestValue(Instruction instr, uint32_t value)
 {
-    switch(instr.value.srcMode)
+    switch(instr.value.destMode)
     {
     case Direct:
-	registers[instr.value.source].Value(value);
+	registers[instr.value.dest].Value(value);
 	break;
 
     case Indir:
-	WriteMem(registers[instr.value.source].Value(), value);
+	WriteMem(registers[instr.value.dest].Value(), value);
 	break;
 
     case IndirAutoInc:
-	WriteMem(registers[instr.value.source].Value(), value);
-	registers[instr.value.source] += 4;
+	WriteMem(registers[instr.value.dest].Value(), value);
+	registers[instr.value.dest] += 4;
 	break;
 	
     case AutoDecIndir:
-	registers[instr.value.source] -= 4;
-	WriteMem(registers[instr.value.source].Value(), value);
+	registers[instr.value.dest] -= 4;
+	WriteMem(registers[instr.value.dest].Value(), value);
 	break;
     }
 }
