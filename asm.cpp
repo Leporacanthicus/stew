@@ -155,6 +155,7 @@ bool FindInstruction(const std::string& instr, InstrEntry& e)
 {
     std::string str = instr;
     std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+    // TODO: We should use a map or something to make it faster..
     for(auto x : instructions)
     {
 	if (x.name == str)

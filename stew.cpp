@@ -9,6 +9,7 @@
 #include "command.h"
 #include "instruction.h"
 #include "lineparser.h"
+#include "stew.h"
 
 CPU *cpu;
 

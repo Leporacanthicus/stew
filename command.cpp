@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <map>
 #include "command.h"
+#include "cpu.h"
+#include "stew.h"
 
 class CmdClass
 {
@@ -34,9 +36,10 @@ bool LoadCmd::DoIt(LineParser& lp)
     }
     std::ifstream f(file);
     uint32_t v;
+    uint32_t addr = 0;
     while(f >> std::hex >> v)
     {
-	std::cout << std::hex << v << std::endl;
+	cpu->WriteMem(addr, v);
     }
 
     return false;
@@ -55,6 +58,7 @@ public:
 bool HelpCmd::DoIt(LineParser& lp)
 {
     std::cout << "Command available:\n" << std::endl;
+    // TODO: Collect all descritions and align the first '-' to make it neat.
     for(auto c : cmdMap)
     {
 	std::cout << c.second->Description() << std::endl;
