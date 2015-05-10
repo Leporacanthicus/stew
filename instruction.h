@@ -33,10 +33,10 @@ private:
 class FlagRegister
 {
 public:
-    unsigned n:1;
-    unsigned z:1;
-    unsigned v:1;
-    unsigned c:1;
+    bool n:1;
+    bool z:1;
+    bool v:1;
+    bool c:1;
 };
 
 enum AddrMode

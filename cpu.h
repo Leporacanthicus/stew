@@ -34,6 +34,7 @@ private:
     uint32_t GetSourceValue(Instruction instr);
     uint32_t GetDestValue(Instruction instr);
     void StoreDestValue(Instruction instr, uint32_t value);
+    void UpdateFlags(uint32_t value);
 
 private:
     Memory& memory;

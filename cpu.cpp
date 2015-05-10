@@ -7,6 +7,12 @@ CPU::CPU(Memory& mem, uint32_t start) : memory(mem)
     registers[PC].Value(start);
 }
 
+void CPU::UpdateFlags(uint32_t v)
+{
+    flags.z = (v == 0);
+    flags.n = (v & 0x80000000);
+}
+
 uint32_t CPU::GetValue(AddrMode mode, RegName reg)
 {
     switch(mode)
@@ -80,6 +86,7 @@ bool CPU::RunOneInstr()
     {
 	uint32_t v = GetSourceValue(instr);
 	StoreDestValue(instr, v);
+	UpdateFlags(v);
 	break;
     }
     case ADD:
@@ -88,6 +95,7 @@ bool CPU::RunOneInstr()
 	uint32_t v2 = GetDestValue(instr);
 	uint32_t v = v1 + v2;
 	StoreDestValue(instr, v);
+	UpdateFlags(v);
 	break;
     }
     case SUB:
@@ -96,8 +104,15 @@ bool CPU::RunOneInstr()
 	uint32_t v2 = GetDestValue(instr);
 	uint32_t v = v2 - v1;
 	StoreDestValue(instr, v);
+	UpdateFlags(v);
 	break;
     }
+    case BNE:
+	if (!flags.z)
+	{
+	    registers[PC] += instr.value.branch;
+	}
+	break;
     default:
 	std::cerr << "Not yet impelemented function at: "
 		  << std::hex << registers[PC].Value()
