@@ -1,0 +1,12 @@
+Some ideas to work on:
+
+1. Overflow detection.
+2. More branch instructions.
+3. Shift instructions.
+4. Instruction count special register.
+5. Read from console.
+6. Other missing instructions?
+7. Further addressing modes?
+8. Test suites (with regression testing!)
+
+

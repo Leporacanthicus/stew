@@ -8,10 +8,24 @@ CPU::CPU(Memory& mem, uint32_t start) : memory(mem)
     registers[PC].Value(start);
 }
 
-void CPU::UpdateFlags(uint32_t v)
+void CPU::UpdateFlags(uint64_t v, OperandSize opsize)
 {
-    flags.z = (v == 0);
-    flags.n = (v & 0x80000000);
+    uint64_t mask;
+    switch(opsize)
+    {
+    case Op8:
+	mask = 0xff;
+	break;
+    case Op16:
+	mask = 0xffff;
+	break;
+    case Op32:
+	mask = 0xffffffff;
+	break;
+    }
+    flags.z = !(v & mask);
+    flags.n = v & ((mask + 1) >> 1);
+    flags.c = v & (mask + 1);
 }
 
 static uint32_t SizeFromOpSize(OperandSize opsize)
@@ -112,33 +126,33 @@ bool CPU::RunOneInstr()
     {
 	uint32_t v = GetSourceValue(instr);
 	StoreDestValue(instr, v);
-	UpdateFlags(v);
+	UpdateFlags(v, instr.value.size);
 	break;
     }
     case ADD:
     {
 	uint32_t v1 = GetSourceValue(instr);
 	uint32_t v2 = GetDestValue(instr);
-	uint32_t v = v1 + v2;
+	uint64_t v = static_cast<uint32_t>(v1) + v2;
 	StoreDestValue(instr, v);
-	UpdateFlags(v);
+	UpdateFlags(v, instr.value.size);
 	break;
     }
     case SUB:
     {
 	uint32_t v1 = GetSourceValue(instr);
 	uint32_t v2 = GetDestValue(instr);
-	uint32_t v = v2 - v1;
+	uint32_t v = static_cast<uint32_t>(v2) - v1;
 	StoreDestValue(instr, v);
-	UpdateFlags(v);
+	UpdateFlags(v, instr.value.size);
 	break;
     }
     case CMP:
     {
 	uint32_t v1 = GetSourceValue(instr);
 	uint32_t v2 = GetDestValue(instr);
-	uint32_t v = v2 - v1;
-	UpdateFlags(v);
+	uint64_t v = static_cast<uint32_t>(v2) - v1;
+	UpdateFlags(v, instr.value.size);
 	break;
     }
     case DIV:
@@ -152,16 +166,16 @@ bool CPU::RunOneInstr()
 	{
 	    registers[instr.value.dest+1].Value(v_mod);
 	}
-	UpdateFlags(v_div);
+	UpdateFlags(v_div, instr.value.size);
 	break;
     }
     case MUL:
     {
 	uint32_t v1 = GetSourceValue(instr);
 	uint32_t v2 = GetDestValue(instr);
-	uint32_t v = v2 * v1;
+	uint64_t v = static_cast<uint32_t>(v2) * v1;
 	StoreDestValue(instr, v);
-	UpdateFlags(v);
+	UpdateFlags(v, instr.value.size);
 	break;
     }	
     
