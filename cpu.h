@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include <cassert>
 #include "instruction.h"
 #include "memory.h"
 
@@ -20,11 +21,13 @@ public:
     }
 
     uint32_t RegValue(RegName r) { return registers[r].Value(); }
-    
+    uint32_t Flags() { return flags.word; }
 private:
     Instruction Fetch()
     {
 	Instruction instr;
+	assert(!(registers[PC].Value() & 3) &&
+	       "Expect even instruction address");
 	instr.value.word = ReadMem(registers[PC].Value(), 4);
 	registers[PC] += 4;
 	return instr;

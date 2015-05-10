@@ -16,6 +16,7 @@ public:
     void Error(const std::string& msg);
     virtual void ErrOutput(const std::string& msg) = 0;
     std::string GetWord();
+    bool GetNum(uint32_t& value);
     virtual bool IsSeparator(const char c) = 0;
 private:
     std::string line;

@@ -133,12 +133,57 @@ bool CPU::RunOneInstr()
 	UpdateFlags(v);
 	break;
     }
+    case CMP:
+    {
+	uint32_t v1 = GetSourceValue(instr);
+	uint32_t v2 = GetDestValue(instr);
+	uint32_t v = v2 - v1;
+	UpdateFlags(v);
+	break;
+    }
+    case DIV:
+    {
+	uint32_t v1 = GetSourceValue(instr);
+	uint32_t v2 = GetDestValue(instr);
+	uint32_t v_div = v2 / v1;
+	uint32_t v_mod = v2 % v1;
+	StoreDestValue(instr, v_div);
+	if (instr.value.destMode == Direct)
+	{
+	    registers[instr.value.dest+1].Value(v_mod);
+	}
+	UpdateFlags(v_div);
+	break;
+    }
+    case MUL:
+    {
+	uint32_t v1 = GetSourceValue(instr);
+	uint32_t v2 = GetDestValue(instr);
+	uint32_t v = v2 * v1;
+	StoreDestValue(instr, v);
+	UpdateFlags(v);
+	break;
+    }	
+    
     case JMP:
     {
 	uint32_t v = GetSourceValue(instr);
 	registers[PC].Value(v);
 	break;
     }
+    case JSR:
+    {
+	uint32_t v = GetSourceValue(instr);
+	registers[SP] -= 4;
+	WriteMem(registers[SP].Value(), registers[PC].Value(), 4);
+	registers[PC].Value(v);
+	break;
+    }
+    case RET:
+	registers[PC].Value(ReadMem(registers[SP].Value(), 4));
+	registers[SP] += 4;
+	break;
+	
     case BNE:
 	if (!flags.z)
 	{
@@ -151,6 +196,7 @@ bool CPU::RunOneInstr()
 	    registers[PC] += instr.value.branch;
 	}
 	break;
+	
     case EMT:
 	Emt(instr.value.branch);
 	break;
@@ -159,6 +205,7 @@ bool CPU::RunOneInstr()
 		  << std::hex << registers[PC].Value()
 		  << std::endl;
 	std::cerr << "Instr = " << instr.value.word << std::endl;
+	return false;
 	break;
     }
     return true;

@@ -7,6 +7,13 @@ LineParser::LineParser(const std::string& ln)
 {
 }
 
+bool LineParser::GetNum(uint32_t& value)
+{
+    std::string w = GetWord();
+    value = std::stoi(w);
+    return true;
+}
+
 std::string LineParser::GetWord()
 {
     std::string w;

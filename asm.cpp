@@ -471,17 +471,10 @@ void ParseBranch(LineParser& lp, InstrKind op)
     }
 }
 
-bool ParseNum(LineParser& lp, uint32_t& value)
-{
-    std::string w = lp.GetWord();
-    value = std::stoi(w);
-    return true;
-}
-
 void ParseEmt(LineParser& lp, InstrKind op)
 {
     uint32_t n = 0;
-    if (ParseNum(lp, n))
+    if (lp.GetNum(n))
     {	
 	StoreInstr(op, static_cast<int>(n));
     }
@@ -508,7 +501,7 @@ void ParseDb(LineParser& lp)
 		lp.Get();
 	    }
 	    uint32_t n = 0;
-	    if (!ParseNum(lp, n))
+	    if (!lp.GetNum(n))
 	    {
 		lp.Error("Expected number here");
 		return;

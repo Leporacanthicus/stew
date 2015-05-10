@@ -33,10 +33,17 @@ private:
 class FlagRegister
 {
 public:
-    bool n:1;
-    bool z:1;
-    bool v:1;
-    bool c:1;
+    union
+    {
+	struct
+	{
+	    bool n:1;
+	    bool z:1;
+	    bool v:1;
+	    bool c:1;
+	};
+	uint8_t word;
+    };
 };
 
 enum AddrMode

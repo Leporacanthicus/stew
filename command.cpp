@@ -88,38 +88,6 @@ bool QuitCmd::DoIt(LineParser& lp)
     return true;
 }
 
-static void ShowPC()
-{
-    std::cout << "PC=" << std::hex << cpu->RegValue(PC) << std::endl;
-}
-
-class StepCmd : public CmdClass
-{
-public:
-    bool DoIt(LineParser& lp) override;
-    std::string Description() override
-	{
-	    return  "STEP - Step one instruction";
-	}
-};
-
-bool StepCmd::DoIt(LineParser& lp)
-{
-    cpu->RunOneInstr();
-    ShowPC();
-    return false;
-}
-
-class RegsCmd : public CmdClass
-{
-public:
-    bool DoIt(LineParser& lp) override;
-    std::string Description() override
-	{
-	    return  "REGS - Show register values";
-	}
-};
-
 static std::string RegStr(int i)
 {
     if (i == 15) return "pc";
@@ -134,7 +102,7 @@ static std::string RegStr(int i)
     return name;
 }
 
-bool RegsCmd::DoIt(LineParser& lp)
+static void ShowRegs()
 {
     int count = 0;
     for(int i = R0; i <= PC; i++)
@@ -149,6 +117,52 @@ bool RegsCmd::DoIt(LineParser& lp)
 	    std::cout << std::endl;
 	}
     }
+    std::cout << "Flags:" << cpu->Flags() << " " << "@pc: "
+	      << cpu->ReadMem(cpu->RegValue(PC), 4) << std::endl;
+}
+
+class StepCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "STEP - Step one instruction";
+	}
+};
+
+bool StepCmd::DoIt(LineParser& lp)
+{
+    uint32_t count = 1;
+    if (!lp.Done())
+    {
+	if (!lp.GetNum(count))
+	{
+	    lp.Error("Expected number as argument");
+	    return false;
+	}
+    }
+    for(uint32_t i = 0; i < count; i++)
+    {
+	cpu->RunOneInstr();
+	ShowRegs();
+    }
+    return false;
+}
+
+class RegsCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "REGS - Show register values";
+	}
+};
+
+bool RegsCmd::DoIt(LineParser& lp)
+{
+    ShowRegs();
     return false;
 }
 
