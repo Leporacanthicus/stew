@@ -1,4 +1,5 @@
 #include <string>
+#include <fstream>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -15,6 +16,13 @@ enum InstrType
     TwoArgType,
     BranchType,
     EmtType,
+};
+
+enum SectionType
+{
+    Code,
+    Data,
+    BSS,
 };
 
 #define INSTR(x, t) { #x, x, t }
@@ -102,20 +110,6 @@ struct ArgInfo
     std::string* label;
 };
 
-struct BackPatch
-{
-    std::string label;
-    size_t location;
-    size_t branchAddr;
-};
-
-std::vector<Instruction> code;
-std::map<std::string,LabelInfo> labels;
-std::vector<BackPatch> backPatchList;
-
-size_t curAddr = 0;
-size_t lineNo = 0;
-
 class AsmLineParser: public LineParser
 {
 public:
@@ -123,6 +117,23 @@ public:
     bool IsSeparator(char c) override;
     void ErrOutput(const std::string& msg) override;
 };
+
+struct BackPatch
+{
+    std::string label;
+    size_t location;
+    size_t branchAddr;
+};
+
+std::vector<uint8_t> code;
+std::vector<uint8_t> data;
+size_t bss_size;
+std::map<std::string,LabelInfo> labels;
+std::vector<BackPatch> backPatchList;
+
+size_t curAddr = 0;
+size_t lineNo = 0;
+SectionType section = Code;
 
 void Error(const std::string& msg)
 {
@@ -187,14 +198,19 @@ void AddLabel(const std::string& name, size_t addr)
     {
 	if (bp->label == name)
 	{
+	    std::vector<uint8_t> code_bytes(sizeof(Instruction));
+	    addr -= bp->branchAddr;
+	    memcpy(code_bytes.data(), &addr, sizeof(Instruction));
+	    int size = 4;
 	    if (bp->branchAddr)
 	    {
-		code[bp->location].value.branch = addr - bp->branchAddr;
+		size = 3;
 	    }
-	    else
+	    for(int i = 0; i < size; i++)
 	    {
-		code[bp->location].value.word = addr;
+		code[bp->location + i] = code_bytes[i];
 	    }
+
 	    bp = backPatchList.erase(bp);
 	}
 	else
@@ -369,6 +385,13 @@ bool ParseOpSize(LineParser& lp, OperandSize &opSize)
     return true;
 }
 
+void CodeStore(Instruction instr)
+{
+    std::vector<uint8_t> code_bytes(sizeof(instr));
+    memcpy(code_bytes.data(), &instr, sizeof(instr));
+    code.insert(code.end(), code_bytes.begin(), code_bytes.end());
+}
+
 void SaveArg(const ArgInfo& arg)
 {
     if (arg.useData)
@@ -380,7 +403,7 @@ void SaveArg(const ArgInfo& arg)
 	    BackPatch bp = { *arg.label, code.size(), 0 };
 	    backPatchList.push_back(bp);
 	}
-	code.push_back(data);
+	CodeStore(data);
 	curAddr += 4;
     }
 }
@@ -395,7 +418,7 @@ void StoreInstr(InstrKind op, OperandSize opsize,
     instr.value.srcMode = arg1.mode;
     instr.value.dest = arg2.reg;
     instr.value.source = arg1.reg;
-    code.push_back(instr);
+    CodeStore(instr);
     curAddr += 4;
     SaveArg(arg1);
     SaveArg(arg2);
@@ -421,11 +444,11 @@ void StoreInstr(InstrKind op, int distance)
     Instruction instr;
     instr.value.branch = distance;
     instr.value.op = op;
-    code.push_back(instr);
+    CodeStore(instr);
     curAddr += 4;
 }
 
-void ParseTwoArgs(LineParser& lp, InstrKind op, OperandSize opsize)
+bool ParseTwoArgs(LineParser& lp, InstrKind op, OperandSize opsize)
 {
     ArgInfo arg1;
     if (ParseArg(lp, arg1))
@@ -435,20 +458,24 @@ void ParseTwoArgs(LineParser& lp, InstrKind op, OperandSize opsize)
 	if (ParseArg(lp, arg2))
 	{
 	    StoreInstr(op, opsize, arg1, arg2);
+	    return true;
 	}
     }
+    return false;
 }
 
-void ParseOneArg(LineParser& lp, InstrKind op, OperandSize opsize)
+bool ParseOneArg(LineParser& lp, InstrKind op, OperandSize opsize)
 {
     ArgInfo arg1;
     if (ParseArg(lp, arg1))
     {		    
 	StoreInstr(op, opsize, arg1);
+	return true;
     }
+    return false;
 }
 
-void ParseBranch(LineParser& lp, InstrKind op)
+bool ParseBranch(LineParser& lp, InstrKind op)
 {
     LabelInfo label;
     if (ParseLabel(lp, label))
@@ -464,23 +491,38 @@ void ParseBranch(LineParser& lp, InstrKind op)
 	    distance = label.addr - (curAddr + 4);
 	}
 	StoreInstr(op, distance);
+	return true;
     }
-    else
-    {
-	lp.Error("Expected branch label?");
-    }
+
+    lp.Error("Expected branch label?");
+    return false;
 }
 
-void ParseEmt(LineParser& lp, InstrKind op)
+bool ParseEmt(LineParser& lp, InstrKind op)
 {
     uint32_t n = 0;
     if (lp.GetNum(n))
     {	
 	StoreInstr(op, static_cast<int>(n));
+	return true;
+    }
+    return false;
+}
+
+void StoreBytesToSection(const std::vector<uint8_t> bytes)
+{
+    if (section == Data)
+    {
+	data.insert(data.end(), bytes.begin(), bytes.end());
+    }
+    else
+    {
+	code.insert(code.end(), bytes.begin(), bytes.end());
     }
 }
 
-void ParseDb(LineParser& lp)
+
+bool ParseDb(LineParser& lp)
 {
     std::vector<uint8_t> bytes;
     char ch;
@@ -490,6 +532,11 @@ void ParseDb(LineParser& lp)
 	{
 	    while(!lp.Accept('"'))
 	    {
+		if (!lp.Done())
+		{
+		    lp.Error("String termination not found");
+		    return false;
+		}
 		ch = lp.Get();
 		bytes.push_back(static_cast<uint8_t>(ch));
 	    }
@@ -504,20 +551,23 @@ void ParseDb(LineParser& lp)
 	    if (!lp.GetNum(n))
 	    {
 		lp.Error("Expected number here");
-		return;
+		return false;
 	    }
 	    bytes.push_back(static_cast<uint8_t>(n));
 	}
     }
-    size_t size = (bytes.size() + 3) / 4;
-    uint32_t words[size];
-    memcpy(words, bytes.data(), bytes.size());
-    for(size_t i = 0; i < size; i++)
-    {
-	Instruction instr;
-	instr.value.word = words[i];
-	code.push_back(instr);
-    }
+
+    StoreBytesToSection(bytes);
+    return true;
+}
+
+void ParseConstant(LineParser& lp, uint32_t size)
+{
+    uint32_t value;
+    lp.GetNum(value);
+    std::vector<uint8_t> bytes(size);
+    memcpy(bytes.data(), &value, size);
+    StoreBytesToSection(bytes);
 }
 
 bool ParsePseudoOp(LineParser& lp)
@@ -531,6 +581,50 @@ bool ParsePseudoOp(LineParser& lp)
     {
 	ParseDb(lp);
 	return true;
+    }
+    if (op == "long")
+    {
+	ParseConstant(lp, 4);
+    }
+    if (op == "word")
+    {
+	ParseConstant(lp, 2);
+    }
+    if (op == "byte")
+    {
+	ParseConstant(lp, 1);
+    }
+    return false;
+}
+
+bool ParseInstruction(LineParser& lp, std::string w)
+{
+    InstrEntry e;
+    if (FindInstruction(w, e))
+    {
+	OperandSize opsize;
+	if (!ParseOpSize(lp, opsize))
+	{
+	    return false;
+	}
+	switch(e.type)
+	{
+	case TwoArgType:
+	    return ParseTwoArgs(lp, e.op, opsize);
+
+	case OneArgType:
+	    return ParseOneArg(lp, e.op, opsize);
+
+	case NoArgsType:
+	    StoreInstr(e.op);
+	    return true;
+
+	case BranchType:
+	    return ParseBranch(lp, e.op);
+
+	case EmtType:
+	    return ParseEmt(lp, e.op);
+	}
     }
     return false;
 }
@@ -549,68 +643,76 @@ void Parse(const std::string& line)
 	    AddLabel(w.substr(0, w.length()-1), curAddr);
 	    continue;
 	}
-	InstrEntry e;
-	if (FindInstruction(w, e))
+
+	if (section == Code && ParseInstruction(lp, w))
 	{
-	    OperandSize opsize;
-	    if (!ParseOpSize(lp, opsize))
-	    {
-		continue;
-	    }
-	    switch(e.type)
-	    {
-	    case TwoArgType:
-	    {
-		Instruction instr;
-		ParseTwoArgs(lp, e.op, opsize);
-		break;
-	    }
-	    case OneArgType:
-	    {
-		ParseOneArg(lp, e.op, opsize);
-		break;
-	    }
-	    case NoArgsType:
-	    {
-		StoreInstr(e.op);
-		break;
-	    }
-	    case BranchType:
-	    {
-		ParseBranch(lp, e.op);
-		break;
-	    }
-	    case EmtType:
-	    {
-		ParseEmt(lp, e.op);
-		break;
-	    }
-	    default:
-		lp.Error("Not yet implemented");
-		return;
-	    }
+	    break;
 	}
-	else if (ParsePseudoOp(lp))
+
+	if (!ParsePseudoOp(lp))
 	{
-	    continue;
-	}
-	else
-	{
-	    lp.Error("Invalid instruction");
+	    lp.Error("Syntax error");
 	}
     }
 }
-    
-int main()
+
+void Output(std::ostream& out, const std::vector<uint8_t>& binary)
+{
+    int count = 0;
+    for(auto v : binary)
+    {
+	out << std::hex << static_cast<uint32_t>(v) << " ";
+	count++;
+	if (count == 16)
+	{
+	    out << std::endl;
+	    count = 0;
+	}
+    }
+    if (count)
+    {
+	out << std::endl;
+    }
+}
+
+void Assemble(std::istream& in, std::ostream& out)
 {
     std::string line;
-    while(std::getline(std::cin, line))
+    while(std::getline(in, line))
     {
 	lineNo++;
 	Parse(line);
     }
-    for(auto v : code)
+    Output(out, code);
+    Output(out, data);
+}
+
+int main(int argc, char **argv)
+{
+    std::istream *in = &std::cin;
+    std::ostream *out = &std::cout;
+    std::ifstream f;
+    if (argc > 1)
     {
-	std::cout << std::hex << v.value.word << std::endl;
+	f.open(argv[1]);
+	if (!f)
+	{
+	    std::cerr << "Could not open file: " << argv[1] << std::endl;
+	    return 1;
+	}
+	in = &f;
     }
+    std::ofstream of;
+    if (argc > 2)
+    {
+	of.open(argv[2]);
+	if (!of)
+	{
+	    std::cerr << "Could not open file: " << argv[2] << std::endl;
+	    return 1;
+	}
+	out = &of;
+    }
+    Assemble(*in, *out);
+    return 0;
 }

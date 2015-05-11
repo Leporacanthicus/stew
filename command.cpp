@@ -43,8 +43,8 @@ bool LoadCmd::DoIt(LineParser& lp)
     uint32_t addr = 0;
     while(f >> std::hex >> v)
     {
-	cpu->WriteMem(addr, v, 4);
-	addr += 4;
+	cpu->WriteMem(addr, v, 1);
+	addr += 1;
     }
 
     std::cout << "Loaded " << addr << " bytes" << std::endl;
