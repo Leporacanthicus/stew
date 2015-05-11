@@ -1,5 +1,6 @@
 #include <string>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -13,6 +14,7 @@ class CmdClass
 public:
     virtual bool DoIt(LineParser& lp) = 0;
     virtual std::string Description() = 0;
+    virtual bool Repeat() { return false; }
 };
 
 std::map<std::string, CmdClass*> cmdMap;
@@ -129,6 +131,7 @@ public:
 	{
 	    return  "STEP - Step one instruction";
 	}
+    bool Repeat() override { return true; }
 };
 
 bool StepCmd::DoIt(LineParser& lp)
@@ -182,6 +185,66 @@ bool RunCmd::DoIt(LineParser& lp)
     return false;
 }
 
+class DumpCmd : public CmdClass
+{
+public:
+    DumpCmd(const std::string& nm, uint32_t sz)
+	{
+	    size = sz;
+	    name = nm;
+	}
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    std::stringstream ss;
+	    ss << name << " addr {length} - Dump memory with wordsize=" << size;
+	    return ss.str();
+	}
+private:
+    uint32_t size;
+    std::string name;
+};
+
+bool DumpCmd::DoIt(LineParser& lp)
+{
+    uint32_t addr;
+    uint32_t len = 1;
+
+    // TODO: Also allow register to be used as address.
+    if (!lp.GetNum(addr, 16))
+    {
+	lp.Error("Invalid address");
+	return false;
+    }
+    if (!lp.Done() && !lp.GetNum(len))
+    {
+	lp.Error("Invalid lenght");
+	return false;
+    }
+    int cnt = 0;
+    for(uint32_t i = 0; i < len; i += size)
+    {
+	uint32_t v = cpu->ReadMem(addr, size);
+	if (cnt == 0)
+	{
+	    std::cout << std::hex << std::setw(8) << std::setfill('0') << addr << ": ";
+	}
+	std::cout << std::hex << std::setw(2*size) << std::setfill('0') << v << " ";
+	cnt += size;
+	addr += size;
+	if (cnt == 16)
+	{
+	    std::cout << std::endl;
+	    cnt = 0;
+	}
+    }
+    if (cnt != 0)
+    {
+	std::cout << std::endl;
+    }
+    return false;
+}
+
 void InitCommands()
 {
     cmdMap["load"] = new LoadCmd;
@@ -192,18 +255,36 @@ void InitCommands()
     cmdMap["s"]    = cmdMap["step"];
     cmdMap["regs"] = new RegsCmd;
     cmdMap["run"]  = new RunCmd;
+    cmdMap["db"]   = new DumpCmd("db", 1);
+    cmdMap["dw"]   = new DumpCmd("dw", 2);
+    cmdMap["dl"]   = new DumpCmd("dl", 4);
 }
 
 bool Command(LineParser& lp)
 {
+    static std::string lastcmd;
+    if (lp.Line() == "" && lastcmd != "")
+    {
+	lp.SetLine(lastcmd);
+    }
     std::string cmd = lp.GetWord();
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);    
 
     auto it = cmdMap.find(cmd);
     if (it != cmdMap.end())
     {
-	return it->second->DoIt(lp);
+	bool result = it->second->DoIt(lp);
+	if (it->second->Repeat())
+	{
+	    lastcmd = lp.Line();
+	}
+	else
+	{
+	    lastcmd = "";
+	}
+	return result;
     }
+
     lp.Error("Command not found");
     return false;
 }

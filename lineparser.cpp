@@ -7,10 +7,10 @@ LineParser::LineParser(const std::string& ln)
 {
 }
 
-bool LineParser::GetNum(uint32_t& value)
+bool LineParser::GetNum(uint32_t& value, int base)
 {
     std::string w = GetWord();
-    value = std::stoi(w);
+    value = std::stoi(w, 0, base);
     return true;
 }
 

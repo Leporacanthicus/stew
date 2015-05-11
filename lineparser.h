@@ -16,13 +16,14 @@ public:
     void Error(const std::string& msg);
     virtual void ErrOutput(const std::string& msg) = 0;
     std::string GetWord();
-    bool GetNum(uint32_t& value);
+    bool GetNum(uint32_t& value, int base = 0);
     virtual bool IsSeparator(const char c) = 0;
+    std::string Line() { return line; }
+    void SetLine(const std::string& ln) { line = ln; }
 private:
     std::string line;
     std::string::size_type pos;
     std::string::size_type save_pos;
 };
-
 
 #endif
