@@ -3,6 +3,12 @@
 #include <cstring>
 #include "memory.h"
 
+static void Unaligned(uint32_t addr)
+{
+    std::cerr << "Unaligned access at " << std::hex << addr << std::endl;
+}
+
+
 Memory::Memory(uint32_t base, uint32_t size) : base(base)
 {
     mem = new uint32_t[size / sizeof(uint32_t)];
@@ -44,7 +50,7 @@ void Memory::Write(uint32_t addr, uint32_t value, uint32_t opsize)
     value = (old & ~mask) | ((value << shift) & mask);
     if (addr & amask)
     {
-	std::cerr << "Unaligned access" << std::endl;
+	Unaligned(addr);
     }
     mem[addr / sizeof(uint32_t)] = value;
 }
@@ -77,7 +83,7 @@ uint32_t Memory::Read(uint32_t addr, uint32_t opsize)
     }
     if (addr & amask)
     {
-	std::cerr << "Unaligned access" << std::endl;
+	Unaligned(addr);
     }
     uint32_t value = mem[addr / sizeof(uint32_t)];
     return (value >> shift) & mask;

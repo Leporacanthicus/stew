@@ -561,13 +561,17 @@ bool ParseDb(LineParser& lp)
     return true;
 }
 
-void ParseConstant(LineParser& lp, uint32_t size)
+bool ParseConstant(LineParser& lp, uint32_t size)
 {
     uint32_t value;
-    lp.GetNum(value);
-    std::vector<uint8_t> bytes(size);
-    memcpy(bytes.data(), &value, size);
-    StoreBytesToSection(bytes);
+    if (lp.GetNum(value))
+    {
+	std::vector<uint8_t> bytes(size);
+	memcpy(bytes.data(), &value, size);
+	StoreBytesToSection(bytes);
+	return true;
+    }
+    return false;
 }
 
 bool ParsePseudoOp(LineParser& lp)
@@ -579,20 +583,19 @@ bool ParsePseudoOp(LineParser& lp)
     std::string op = lp.GetWord();
     if (op == "db")
     {
-	ParseDb(lp);
-	return true;
+	return ParseDb(lp);
     }
-    if (op == "long")
+    else if (op == "long")
     {
-	ParseConstant(lp, 4);
+	return ParseConstant(lp, 4);
     }
-    if (op == "word")
+    else if (op == "word")
     {
-	ParseConstant(lp, 2);
+	return ParseConstant(lp, 2);
     }
-    if (op == "byte")
+    else if (op == "byte")
     {
-	ParseConstant(lp, 1);
+	return ParseConstant(lp, 1);
     }
     return false;
 }

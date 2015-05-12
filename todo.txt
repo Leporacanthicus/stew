@@ -8,5 +8,4 @@ Some ideas to work on:
 6. Other missing instructions?
 7. Further addressing modes?
 8. Test suites (with regression testing!)
-
-
+9. ELF-format input files?
