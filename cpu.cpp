@@ -8,7 +8,41 @@ CPU::CPU(Memory& mem, uint32_t start) : memory(mem)
     registers[PC].Value(start);
 }
 
-void CPU::UpdateFlags(uint64_t v, OperandSize opsize)
+
+static bool CmpOverflow(uint64_t v, uint32_t v1, uint32_t v2, uint64_t sign)
+{
+    /*
+      cmp:
+      V: set if there was arithmetic overflow; that is, operands were
+      of opposite signs and the sign of the destination was the
+      same as the sign of the result; cleared otherwise
+    */
+
+    return ((v & sign) == (v2 & sign)) & ((v1 ^ v2) & sign);
+}
+
+static bool SubOverflow(uint64_t v, uint32_t v1, uint32_t v2, uint64_t sign)
+{
+    /* sub:
+      V: set if there was arithmetic overflow as a result of the oper·
+      ation, that is if operands were of opposite signs and the sign
+      of the source was the same as the sign of the result; cleared
+      otherwise. */
+    return ((v & sign) == (v1 & sign)) & ((v1 ^ v2) & sign);
+}    
+    
+static bool AddOverflow(uint64_t v, uint32_t v1, uint32_t v2, uint64_t sign)
+{
+    /*  add:
+      V: set if there was arithmetic overflow as a result of the oper·
+      ation; that is both operands were of the same sign and the
+      result was of the opposite sign; cleared otherwise
+    */
+    return ((v & sign) != (v1 & sign)) & ((v1 & sign) == (v2 & sign));
+}
+
+void CPU::UpdateFlags(uint64_t v, uint32_t v1, uint32_t v2, OperandSize opsize,
+		      OverflowFunc oflow)
 {
     uint64_t mask;
     switch(opsize)
@@ -23,9 +57,18 @@ void CPU::UpdateFlags(uint64_t v, OperandSize opsize)
 	mask = 0xffffffff;
 	break;
     }
+    uint64_t sign = (mask + 1) >> 1;
     flags.z = !(v & mask);
-    flags.n = v & ((mask + 1) >> 1);
+    flags.n = v & sign;
     flags.c = v & (mask + 1);
+    if (oflow)
+    {
+	flags.v = oflow(v, v1, v2, sign);
+    }
+    else
+    {
+	flags.v = false;
+    }
 }
 
 static uint32_t SizeFromOpSize(OperandSize opsize)
@@ -110,6 +153,90 @@ void CPU::Emt(uint32_t num)
     }
 }
 
+void CPU::BranchIfTrue(Instruction instr, bool cond)
+{
+    if (cond)
+    {
+	registers[PC] += instr.value.branch;
+    }
+}
+
+void CPU::Move(Instruction instr)
+{
+    uint32_t v = GetSourceValue(instr);
+    StoreDestValue(instr, v);
+    UpdateFlags(v, v, v, instr.value.size, 0 );
+}
+
+void CPU::Add(Instruction instr)
+{
+    uint32_t v1 = GetSourceValue(instr);
+    uint32_t v2 = GetDestValue(instr);
+    uint64_t v = static_cast<uint64_t>(v1) + v2;
+    StoreDestValue(instr, v);
+    UpdateFlags(v, v1, v2, instr.value.size, AddOverflow);
+}
+
+void CPU::Sub(Instruction instr)
+{
+    uint32_t src = GetSourceValue(instr);
+    uint32_t dest = GetDestValue(instr);
+    uint32_t v = static_cast<uint64_t>(dest) - src;
+    StoreDestValue(instr, v);
+    UpdateFlags(v, src, dest, instr.value.size, SubOverflow);
+}
+
+void CPU::Cmp(Instruction instr)
+{
+    uint32_t src = GetSourceValue(instr);
+    uint32_t dest = GetDestValue(instr);
+    uint64_t v = static_cast<uint64_t>(src) - dest;
+    UpdateFlags(v, src, dest, instr.value.size, CmpOverflow);
+}
+
+void CPU::Div(Instruction instr)
+{
+    uint32_t v1 = GetSourceValue(instr);
+    uint32_t v2 = GetDestValue(instr);
+    uint32_t v_div = v2 / v1;
+    uint32_t v_mod = v2 % v1;
+    StoreDestValue(instr, v_div);
+    if (instr.value.destMode == Direct)
+    {
+	registers[instr.value.dest+1].Value(v_mod);
+    }
+    UpdateFlags(v_div, 0, 0, instr.value.size, 0); // TODO: Add ovflowe func.
+}
+
+void CPU::Mul(Instruction instr)
+{
+    uint32_t v1 = GetSourceValue(instr);
+    uint32_t v2 = GetDestValue(instr);
+    uint64_t v = static_cast<uint64_t>(v2) * v1;
+    StoreDestValue(instr, v);
+    UpdateFlags(v, 0, 0, instr.value.size, 0);  // TODO: Add overflow func.
+}
+
+void CPU::Jmp(Instruction instr)
+{
+    uint32_t v = GetSourceValue(instr);
+    registers[PC].Value(v);
+}
+
+void CPU::Jsr(Instruction instr)
+{
+    uint32_t v = GetSourceValue(instr);
+    registers[SP] -= 4;
+    WriteMem(registers[SP].Value(), registers[PC].Value(), 4);
+    registers[PC].Value(v);
+}
+
+void CPU::Ret(Instruction instr)
+{
+    registers[PC].Value(ReadMem(registers[SP].Value(), 4));
+    registers[SP] += 4;
+}
+
 /* Return true for "continue", false for "stop" */
 bool CPU::RunOneInstr()
 {
@@ -117,103 +244,104 @@ bool CPU::RunOneInstr()
     switch(instr.value.op)
     {
     case HLT:
-    {
 	std::cout << "Hit halt at " << std::hex << registers[PC].Value()
 		  << std::endl;
 	return false;
-    }
     case MOV:
-    {
-	uint32_t v = GetSourceValue(instr);
-	StoreDestValue(instr, v);
-	UpdateFlags(v, instr.value.size);
+	Move(instr);
 	break;
-    }
     case ADD:
-    {
-	uint32_t v1 = GetSourceValue(instr);
-	uint32_t v2 = GetDestValue(instr);
-	uint64_t v = static_cast<uint32_t>(v1) + v2;
-	StoreDestValue(instr, v);
-	UpdateFlags(v, instr.value.size);
+	Add(instr);
 	break;
-    }
     case SUB:
-    {
-	uint32_t v1 = GetSourceValue(instr);
-	uint32_t v2 = GetDestValue(instr);
-	uint32_t v = static_cast<uint32_t>(v2) - v1;
-	StoreDestValue(instr, v);
-	UpdateFlags(v, instr.value.size);
+	Sub(instr);
 	break;
-    }
     case CMP:
-    {
-	uint32_t v1 = GetSourceValue(instr);
-	uint32_t v2 = GetDestValue(instr);
-	uint64_t v = static_cast<uint32_t>(v2) - v1;
-	UpdateFlags(v, instr.value.size);
+	Cmp(instr);
 	break;
-    }
     case DIV:
-    {
-	uint32_t v1 = GetSourceValue(instr);
-	uint32_t v2 = GetDestValue(instr);
-	uint32_t v_div = v2 / v1;
-	uint32_t v_mod = v2 % v1;
-	StoreDestValue(instr, v_div);
-	if (instr.value.destMode == Direct)
-	{
-	    registers[instr.value.dest+1].Value(v_mod);
-	}
-	UpdateFlags(v_div, instr.value.size);
+	Div(instr);
 	break;
-    }
     case MUL:
-    {
-	uint32_t v1 = GetSourceValue(instr);
-	uint32_t v2 = GetDestValue(instr);
-	uint64_t v = static_cast<uint32_t>(v2) * v1;
-	StoreDestValue(instr, v);
-	UpdateFlags(v, instr.value.size);
+	Mul(instr);
 	break;
-    }	
     
     case JMP:
     {
-	uint32_t v = GetSourceValue(instr);
-	registers[PC].Value(v);
+	Jmp(instr);
 	break;
     }
     case JSR:
     {
-	uint32_t v = GetSourceValue(instr);
-	registers[SP] -= 4;
-	WriteMem(registers[SP].Value(), registers[PC].Value(), 4);
-	registers[PC].Value(v);
+	Jsr(instr);
 	break;
     }
     case RET:
-	registers[PC].Value(ReadMem(registers[SP].Value(), 4));
-	registers[SP] += 4;
 	break;
-	
+
+	/*
+		|0010xx || BNE || Branch if not equal (Z=0)
+		|0014xx || BEQ || Branch if equal (Z=1)
+		|0020xx || BGE || Branch if greater than or equal (N|V = 0)
+		|0024xx || BLT || Branch if less than (N|V = 1)
+		|0030xx || BGT || Branch if greater than (N^V = 1)
+		|0034xx || BLE || Branch if less than or equal (N^V = 0)
+		|1010xx || BHI || Branch if higher than (C|Z = 0)
+		|1014xx || BLOS|| Branch if lower or same (C|Z = 1)
+		|1020xx || BVC || Branch if overflow clear (V=0)
+		|1024xx || BVS || Branch if overflow set (V=1)
+		|1030xx || BCC || Branch if carry clear (C=0)
+		|       || BHIS|| Branch if higher or same (C=0)
+		|1034xx || BCS || Branch if carry set (C=1)
+		|       || BLO || Branch if lower than (C=1)
+	*/
     case BNE:
-	if (!flags.z)
-	{
-	    registers[PC] += instr.value.branch;
-	}
+	BranchIfTrue(instr, !flags.z);
 	break;
     case BEQ:
-	if (flags.z)
-	{
-	    registers[PC] += instr.value.branch;
-	}
+	BranchIfTrue(instr, flags.z);
+	break;
+    case BLT:
+	BranchIfTrue(instr, flags.n | flags.v);
+	break;
+    case BGT:
+	BranchIfTrue(instr, flags.n ^ flags.v);
+	break;
+    case BGE:
+	BranchIfTrue(instr, !(flags.n | flags.v));
+	break;
+    case BLE:
+	BranchIfTrue(instr, !(flags.n ^ flags.v));
+	break;
+    case BHI:
+	BranchIfTrue(instr, !(flags.c | flags.z));
+	break;
+    case BLOS:
+	BranchIfTrue(instr, flags.c | flags.z);
+	break;
+    case BVS:
+	BranchIfTrue(instr, flags.v);
+	break;
+    case BVC:
+	BranchIfTrue(instr, !flags.v);
+	break;
+    case BCC:
+	BranchIfTrue(instr, !flags.c);
+	break;
+    case BCS:
+	BranchIfTrue(instr, flags.c);
+	break;
+    case BR:
+	BranchIfTrue(instr, true);
+
+    case NOP:
+	// Nothing to see here, move on!
 	break;
 	
     case EMT:
 	Emt(instr.value.branch);
 	break;
+	
     default:
 	std::cerr << "Not yet impelemented function at: "
 		  << std::hex << registers[PC].Value()

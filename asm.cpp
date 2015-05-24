@@ -18,6 +18,7 @@ enum InstrType
     EmtType,
 };
 
+
 enum SectionType
 {
     Code,
@@ -78,6 +79,7 @@ InstrEntry instructions[] =
     INSTR(BPL,  BranchType),
     INSTR(BVC,  BranchType),
     INSTR(BVS,  BranchType),
+    INSTR(BR,   BranchType),
 
     INSTR(EMT,  EmtType)
 };
@@ -187,10 +189,7 @@ void AddLabel(const std::string& name, size_t addr)
 	return;
     }
 
-    LabelInfo li;
-    li.name = name;
-    li.addr = addr;
-    li.needBP = false;
+    LabelInfo li = {name, addr, false};
 
     labels[name] = li;
     
@@ -199,8 +198,8 @@ void AddLabel(const std::string& name, size_t addr)
 	if (bp->label == name)
 	{
 	    std::vector<uint8_t> code_bytes(sizeof(Instruction));
-	    addr -= bp->branchAddr;
-	    memcpy(code_bytes.data(), &addr, sizeof(Instruction));
+	    size_t adjusted_addr = addr - bp->branchAddr;
+	    memcpy(code_bytes.data(), &adjusted_addr, sizeof(Instruction));
 	    int size = 4;
 	    if (bp->branchAddr)
 	    {
@@ -532,7 +531,7 @@ bool ParseDb(LineParser& lp)
 	{
 	    while(!lp.Accept('"'))
 	    {
-		if (!lp.Done())
+		if (lp.Done())
 		{
 		    lp.Error("String termination not found");
 		    return false;
@@ -574,6 +573,28 @@ bool ParseConstant(LineParser& lp, uint32_t size)
     return false;
 }
 
+bool ParseZero(LineParser& lp)
+{
+    uint32_t value;
+    if (lp.GetNum(value))
+    {
+	if (section == BSS)
+	{
+	    curAddr += value;
+	}
+	else
+	{
+	    std::vector<uint8_t> bytes = {0};
+	    for(uint32_t i = 0; i < value; i++)
+	    {
+		StoreBytesToSection(bytes);
+	    }
+	}
+	return true;
+    }
+    return false;
+}
+
 bool ParsePseudoOp(LineParser& lp)
 {
     if (!lp.Accept('.'))
@@ -597,6 +618,26 @@ bool ParsePseudoOp(LineParser& lp)
     {
 	return ParseConstant(lp, 1);
     }
+    else if (op == "zero")
+    {
+	return ParseZero(lp);
+    }
+    else if (op == "code" || op == "text")
+    {
+	section = Code;
+	return true;
+    }
+    else if (op == "data")
+    {
+	section = Data;
+	return true;
+    }
+    else if (op == "bss")
+    {
+	section = BSS;
+	return true;
+    }
+    
     return false;
 }
 

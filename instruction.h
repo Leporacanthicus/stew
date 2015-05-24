@@ -101,6 +101,7 @@ enum InstrKind
     BPL,			/* Positive */
     BVC,			/* Overflow clear */
     BVS,			/* Overflow set */
+    BR,
 
     /* Special type instructions */
     EMT = 64,  			/* Emulation trap - call OS */

@@ -5,6 +5,9 @@
 #include "instruction.h"
 #include "memory.h"
 
+typedef bool (*OverflowFunc)(uint64_t v, uint32_t v1, uint32_t v2,
+			     uint64_t sign);
+
 class CPU
 {
 public:
@@ -37,8 +40,19 @@ private:
     uint32_t GetSourceValue(Instruction instr);
     uint32_t GetDestValue(Instruction instr);
     void StoreDestValue(Instruction instr, uint32_t value);
-    void UpdateFlags(uint64_t value, OperandSize opsize);
+    void UpdateFlags(uint64_t value, uint32_t v1, uint32_t v2,
+		     OperandSize opsize, OverflowFunc oflow);
     void Emt(uint32_t num);
+    void BranchIfTrue(Instruction instr, bool cond);
+    void Move(Instruction instr);
+    void Add(Instruction instr);
+    void Sub(Instruction instr);
+    void Div(Instruction instr);
+    void Mul(Instruction instr);
+    void Jmp(Instruction instr);
+    void Jsr(Instruction instr);
+    void Ret(Instruction instr);
+    void Cmp(Instruction instr);
 
 private:
     Memory& memory;
