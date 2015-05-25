@@ -83,6 +83,7 @@ enum InstrKind
     RET,
     JMP,
     HLT,			/* Stop execution */
+    BPT,			/* Breakpoint */
     
     /* Branch instructions */
     BEQ = 48,
@@ -97,7 +98,7 @@ enum InstrKind
     BHIS = BCC,			/* Higher or same (unsigned) */
     BCS,			/* Carry set */
     BLO = BCS,
-    BNG,			/* Negative */
+    BMI,			/* Negative */
     BPL,			/* Positive */
     BVC,			/* Overflow clear */
     BVS,			/* Overflow set */
@@ -129,7 +130,7 @@ public:
 		    OperandSize  size:2;
 		    InstrKind    op:8;
 		};
-		struct		/* Brand instructions */
+		struct		/* Branch instructions */
 		{
 		    int32_t      branch:24;
 		    InstrKind    dummy_op:8;

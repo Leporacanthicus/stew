@@ -238,7 +238,7 @@ void CPU::Ret(Instruction instr)
 }
 
 /* Return true for "continue", false for "stop" */
-bool CPU::RunOneInstr()
+ExecResult CPU::RunOneInstr()
 {
     Instruction instr = Fetch();
     switch(instr.value.op)
@@ -246,7 +246,11 @@ bool CPU::RunOneInstr()
     case HLT:
 	std::cout << "Hit halt at " << std::hex << registers[PC].Value()
 		  << std::endl;
-	return false;
+	return Halt;
+
+    case BPT:
+	return Breakpoint;
+	
     case MOV:
 	Move(instr);
 	break;
@@ -265,18 +269,15 @@ bool CPU::RunOneInstr()
     case MUL:
 	Mul(instr);
 	break;
-    
+
     case JMP:
-    {
 	Jmp(instr);
 	break;
-    }
     case JSR:
-    {
 	Jsr(instr);
 	break;
-    }
     case RET:
+	Ret(instr);
 	break;
 
 	/*
@@ -331,8 +332,15 @@ bool CPU::RunOneInstr()
     case BCS:
 	BranchIfTrue(instr, flags.c);
 	break;
+    case BPL:
+	BranchIfTrue(instr, !flags.n);
+	break;
+    case BMI:
+	BranchIfTrue(instr, flags.n);
+	break;
     case BR:
 	BranchIfTrue(instr, true);
+	break;
 
     case NOP:
 	// Nothing to see here, move on!
@@ -347,9 +355,9 @@ bool CPU::RunOneInstr()
 		  << std::hex << registers[PC].Value()
 		  << std::endl;
 	std::cerr << "Instr = " << instr.value.word << std::endl;
-	return false;
+	return Unknown;
 	break;
     }
-    return true;
+    return Continue;
 }
 

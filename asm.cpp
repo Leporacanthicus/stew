@@ -1,6 +1,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <map>
 #include <cstdlib>
@@ -62,6 +63,7 @@ InstrEntry instructions[] =
     INSTR(RET,  NoArgsType),
     INSTR(JMP,  OneArgType),
     INSTR(HLT,  NoArgsType),
+    INSTR(BPT,  NoArgsType),
     
     INSTR(BEQ,  BranchType),
     INSTR(BNE,  BranchType),
@@ -75,7 +77,7 @@ InstrEntry instructions[] =
     INSTR(BHIS, BranchType),
     INSTR(BCS,  BranchType),
     INSTR(BLO,  BranchType),
-    INSTR(BNG,  BranchType),
+    INSTR(BMI,  BranchType),
     INSTR(BPL,  BranchType),
     INSTR(BVC,  BranchType),
     INSTR(BVS,  BranchType),
@@ -518,6 +520,7 @@ void StoreBytesToSection(const std::vector<uint8_t> bytes)
     {
 	code.insert(code.end(), bytes.begin(), bytes.end());
     }
+    curAddr += bytes.size();
 }
 
 
@@ -719,7 +722,7 @@ void Output(std::ostream& out, const std::vector<uint8_t>& binary)
     }
 }
 
-void Assemble(std::istream& in, std::ostream& out)
+void Assemble(std::istream& in, std::ostream& out, std::ostream& map)
 {
     std::string line;
     while(std::getline(in, line))
@@ -729,34 +732,55 @@ void Assemble(std::istream& in, std::ostream& out)
     }
     Output(out, code);
     Output(out, data);
+    if (map)
+    {
+	for(auto i : labels)
+	{
+	    map << std::left << std::setw(20) << std::setfill(' ')
+		<< i.first + ": "
+		<< std::right << std::hex << std::setfill('0') << std::setw(8)
+		<< i.second.addr
+		<< std::endl;
+	}
+    }
 }
 
 int main(int argc, char **argv)
 {
     std::istream *in = &std::cin;
     std::ostream *out = &std::cout;
-    std::ifstream f;
+    std::ifstream inf;
     if (argc > 1)
     {
-	f.open(argv[1]);
-	if (!f)
+	inf.open(argv[1]);
+	if (!inf)
 	{
 	    std::cerr << "Could not open file: " << argv[1] << std::endl;
 	    return 1;
 	}
-	in = &f;
+	in = &inf;
     }
-    std::ofstream of;
+    std::ofstream outf;
     if (argc > 2)
     {
-	of.open(argv[2]);
-	if (!of)
+	outf.open(argv[2]);
+	if (!outf)
 	{
 	    std::cerr << "Could not open file: " << argv[2] << std::endl;
 	    return 1;
 	}
-	out = &of;
+	out = &outf;
     }
-    Assemble(*in, *out);
+    std::ofstream mapf;
+    if (argc > 3)
+    {
+	mapf.open(argv[3]);
+	if (!mapf)
+	{
+	    std::cerr << "Could not open file: " << argv[3] << std::endl;
+	    return 1;
+	}
+    }
+    Assemble(*in, *out, mapf);
     return 0;
 }

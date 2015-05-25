@@ -9,6 +9,19 @@
 #include "cpu.h"
 #include "stew.h"
 
+struct BpEntry
+{
+    Instruction oldInstr;
+};
+
+struct SymInfo
+{
+    uint32_t addr;
+};
+
+std::map<uint32_t, BpEntry> bpList;
+std::map<std::string, SymInfo> symbols;
+
 class CmdClass
 {
 public:
@@ -18,6 +31,48 @@ public:
 };
 
 std::map<std::string, CmdClass*> cmdMap;
+
+static bool GetAddr(LineParser& lp, uint32_t& addr)
+{
+    lp.Save();
+    std::string name = lp.GetWord();
+    auto it = symbols.find(name);
+    if (it != symbols.end())
+    {
+	addr = it->second.addr;
+	return true;
+    }
+    lp.Restore();
+    if (lp.GetNum(addr, 16))
+    {
+	return true;
+    }
+    return false;
+}
+
+static void SetBreakpoint(uint32_t addr)
+{
+    Instruction instr;
+    instr.value.word = 0;
+    instr.value.op = BPT;
+    cpu->WriteMem(addr, instr.value.word, 4);
+}
+
+static ExecResult StepPastBreak()
+{
+    ExecResult res = Unknown;
+    uint32_t addr = cpu->RegValue(PC)-4;
+    auto it = bpList.find(addr);
+    if (it != bpList.end())
+    {
+	cpu->WriteMem(addr, it->second.oldInstr.value.word, 4);
+	cpu->RegValue(PC, addr);
+	res = cpu->RunOneInstr();
+	SetBreakpoint(addr);
+    }
+    return res;
+}
+
 
 class LoadCmd : public CmdClass
 {
@@ -44,10 +99,10 @@ bool LoadCmd::DoIt(LineParser& lp)
     while(f >> std::hex >> v)
     {
 	cpu->WriteMem(addr, v, 1);
-	addr += 1;
+	addr++;
     }
 
-    std::cout << "Loaded " << addr << " bytes" << std::endl;
+    std::cout << "Loaded " << addr << " bytes." << std::endl;
     return false;
 }
 
@@ -120,6 +175,7 @@ static void ShowRegs()
 	}
     }
     std::cout << "Flags:" << cpu->Flags() << " " << "@pc: "
+	      << std::setw(8) << std::setfill('0')
 	      << cpu->ReadMem(cpu->RegValue(PC), 4) << std::endl;
 }
 
@@ -132,6 +188,8 @@ public:
 	    return  "STEP - Step one instruction";
 	}
     bool Repeat() override { return true; }
+private:
+    ExecResult res = Unknown;
 };
 
 bool StepCmd::DoIt(LineParser& lp)
@@ -144,11 +202,24 @@ bool StepCmd::DoIt(LineParser& lp)
 	    lp.Error("Expected number as argument");
 	    return false;
 	}
+	if (count == 0)
+	{
+	    return false;
+	}
+    }
+    if (res == Breakpoint)
+    {
+	res = StepPastBreak();
+	count--;
     }
     for(uint32_t i = 0; i < count; i++)
     {
-	cpu->RunOneInstr();
+	res = cpu->RunOneInstr();
 	ShowRegs();
+	if (res != Continue)
+	{
+	    break;
+	}
     }
     return false;
 }
@@ -177,11 +248,82 @@ public:
 	{
 	    return  "RUN - Execute program";
 	}
+private:
+    ExecResult res;
 };
 
 bool RunCmd::DoIt(LineParser& lp)
 {
-    while(cpu->RunOneInstr());
+    if (res == Breakpoint)
+    {
+	res = StepPastBreak();
+	if (res != Continue)
+	{
+	    return false;
+	}
+    }
+    while((res = cpu->RunOneInstr()) == Continue);
+    if (res == Breakpoint)
+    {
+	std::cout << "Breakpoint hit" << std::endl;
+	ShowRegs();
+    }
+    return false;
+}
+
+class BPSetCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "BR address - Set breakpoint";
+	}
+};
+
+bool BPSetCmd::DoIt(LineParser& lp)
+{
+    uint32_t addr;
+    if (!GetAddr(lp, addr))
+    {
+	lp.Error("Invalid address");
+	return false;
+    }
+    BpEntry bp;
+    bp.oldInstr.value.word = cpu->ReadMem(addr, 4);
+    SetBreakpoint(addr);
+    bpList[addr] = bp;
+    return false;
+}
+
+class BPClearCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "BR address - Set breakpoint";
+	}
+};
+
+bool BPClearCmd::DoIt(LineParser& lp)
+{
+    uint32_t addr;
+    if (!lp.GetNum(addr, 16))
+    {
+	lp.Error("Invalid address");
+	return false;
+    }
+    auto it = bpList.find(addr);
+    if (it == bpList.end())
+    {
+	lp.Error("Breakpoint not found");
+	return false;
+    }
+    else
+    {
+	cpu->WriteMem(addr, it->second.oldInstr.value.word, 4);
+    }
     return false;
 }
 
@@ -245,19 +387,68 @@ bool DumpCmd::DoIt(LineParser& lp)
     return false;
 }
 
+class SymbolCmd : public CmdClass
+{
+public:
+    bool DoIt(LineParser& lp) override;
+    std::string Description() override
+	{
+	    return  "SYM file - load symbol table from file";
+	}
+};
+
+bool SymbolCmd::DoIt(LineParser& lp)
+{
+    std::string file = lp.GetWord();
+    if (file == "")
+    {
+	lp.Error("Expected filename to be given");
+	return false;
+    }
+    
+    std::ifstream f(file);
+    uint32_t v;
+    std::string name;
+    uint32_t count = 0;
+    while(f >> name >> std::hex >> v)
+    {
+	if (name[name.length()-1] == ':')
+	{
+	    name = name.substr(0, name.length()-1);
+	}
+	else
+	{
+	    std::cout << "Strange symbol found: " << name << std::endl;
+	    return false;
+	}
+	SymInfo si = { v };
+	symbols[name] = si;
+	count ++;
+    }
+
+    std::cout << "Loaded " << count << " symbols." << std::endl;
+    return false;
+}
+
+
 void InitCommands()
 {
-    cmdMap["load"] = new LoadCmd;
-    cmdMap["help"] = new HelpCmd;
-    cmdMap["quit"] = new QuitCmd("quit");
-    cmdMap["exit"] = new QuitCmd("exit");
-    cmdMap["step"] = new StepCmd;
-    cmdMap["s"]    = cmdMap["step"];
-    cmdMap["regs"] = new RegsCmd;
-    cmdMap["run"]  = new RunCmd;
-    cmdMap["db"]   = new DumpCmd("db", 1);
-    cmdMap["dw"]   = new DumpCmd("dw", 2);
-    cmdMap["dl"]   = new DumpCmd("dl", 4);
+    cmdMap["load"]     = new LoadCmd;
+    cmdMap["help"]     = new HelpCmd;
+    cmdMap["quit"]     = new QuitCmd("quit");
+    cmdMap["exit"]     = new QuitCmd("exit");
+    cmdMap["step"]     = new StepCmd;
+    cmdMap["s"]        = cmdMap["step"];
+    cmdMap["regs"]     = new RegsCmd;
+    cmdMap["run"]      = new RunCmd;
+    cmdMap["db"]       = new DumpCmd("db", 1);
+    cmdMap["dw"]       = new DumpCmd("dw", 2);
+    cmdMap["dl"]       = new DumpCmd("dl", 4);
+    cmdMap["br"]       = new BPSetCmd;
+    cmdMap["bc"]       = new BPClearCmd;
+    cmdMap["continue"] = cmdMap["run"];
+    cmdMap["c"]        = cmdMap["run"];
+    cmdMap["sym"]      = new SymbolCmd;
 }
 
 bool Command(LineParser& lp)

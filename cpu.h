@@ -5,6 +5,14 @@
 #include "instruction.h"
 #include "memory.h"
 
+enum ExecResult
+{
+    Continue,
+    Halt,
+    Breakpoint,
+    Unknown,
+};
+
 typedef bool (*OverflowFunc)(uint64_t v, uint32_t v1, uint32_t v2,
 			     uint64_t sign);
 
@@ -12,7 +20,7 @@ class CPU
 {
 public:
     CPU(Memory& mem, uint32_t start);
-    bool RunOneInstr();
+    ExecResult RunOneInstr();
     /* The read/write memory are usef for loading and dumping memrory */
     void WriteMem(uint32_t addr, uint32_t value, uint32_t size)
     {
@@ -24,7 +32,9 @@ public:
     }
 
     uint32_t RegValue(RegName r) { return registers[r].Value(); }
+    void RegValue(RegName r, uint32_t v) { registers[r].Value(v); }
     uint32_t Flags() { return flags.word; }
+
 private:
     Instruction Fetch()
     {

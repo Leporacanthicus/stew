@@ -28,7 +28,7 @@ lab2:
 	bgt	next2
 	br	fail
 	
-next2:	
+next2:
 	mov	#0,r0
 	cmp	r2,r3
 	blt	fail		
@@ -48,7 +48,7 @@ next2:
 	mov	#5,r0
 	ble	next
 	br	fail
-next:	
+next:
 	mov	#7,r0
 	cmp	r3,r4
 	bge	next3
@@ -63,7 +63,33 @@ next3:
 	blos	next4
 	br	fail
 	
-next4:	
+next4:
+	mov	#9,r0
+	mov	#-1,r2
+	bmi	next5
+	br	fail
+
+next5:
+	mov	#10,r0
+	mov	#1,r2
+	bpl	next6
+	br	fail
+
+next6:
+	mov	#11,r0
+	mov	#0x7f000000,r1
+	add	#0x7f000000,r2
+	bvs	next7
+	br	fail
+
+next7:
+	mov	#12,r0
+	mov	#0x7f000000,r1
+	add	#1,r2
+	bvc	next8
+	br	fail
+
+next8:
 	hlt
 
 
@@ -104,5 +130,4 @@ failmsg:
 	.db	"Failed at testpoint number ",0
 
 	.zero	400
-stack:	
-	
+stack:
