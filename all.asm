@@ -90,24 +90,33 @@ next7:
 	br	fail
 
 next8:
+	mov	success,r0
+	jmp	print
 	hlt
 
 
 fail:
 	mov 	r0,-(sp)
 	mov	failmsg,r0
-	jmp	print
-
+	jsr	print
+	mov	(sp)+,r0
+	jsr	printnum
+	mov	#10,r0
+	emt	1
+	hlt
+	
 print:
 	mov	r0,r1
 loop:
 	mov.b	(r1)+,r0
-	beq	printnum
+	beq	done
 	emt	1
 	jmp	loop
 
+done:
+	ret
+
 printnum:
-	mov	(sp)+,r0
 	mov	#0,-(sp)
 ploop:
 	;; R0 = number divided, R1 = modulo.
@@ -122,12 +131,14 @@ ploop2:
 	emt	1
 	jmp	ploop2
 pdone:
-	mov	#10,r0
-	emt	1
-	hlt
+	ret
 
 failmsg:
 	.db	"Failed at testpoint number ",0
+success:
+	.db	"All tests passed",10,0
+
+	.align	4
 
 	.zero	400
 stack:

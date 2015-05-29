@@ -576,22 +576,51 @@ bool ParseConstant(LineParser& lp, uint32_t size)
     return false;
 }
 
+void StoreZeroBytes(uint32_t value)
+{
+    if (section == BSS)
+    {
+	curAddr += value;
+    }
+    else
+    {
+	std::vector<uint8_t> bytes = {0};
+	for(uint32_t i = 0; i < value; i++)
+	{
+	    StoreBytesToSection(bytes);
+	}
+    }
+}
+
 bool ParseZero(LineParser& lp)
 {
     uint32_t value;
     if (lp.GetNum(value))
     {
+	StoreZeroBytes(value);
+	return true;
+    }
+    return false;
+}
+
+bool ParseAlign(LineParser& lp)
+{
+    uint32_t value;
+    if (lp.GetNum(value))
+    {
+	if (value & value-1)
+	{
+	    lp.Error("Invalid alignment, should be power of two");
+	    return false;
+	}
+	uint32_t alignment = ((curAddr + (value-1)) & ~(value-1)) - curAddr;
 	if (section == BSS)
 	{
-	    curAddr += value;
+	    curAddr += alignment;
 	}
 	else
 	{
-	    std::vector<uint8_t> bytes = {0};
-	    for(uint32_t i = 0; i < value; i++)
-	    {
-		StoreBytesToSection(bytes);
-	    }
+	    StoreZeroBytes(alignment);
 	}
 	return true;
     }
@@ -639,6 +668,10 @@ bool ParsePseudoOp(LineParser& lp)
     {
 	section = BSS;
 	return true;
+    }
+    else if (op == "align")
+    {
+	return ParseAlign(lp);
     }
     
     return false;
