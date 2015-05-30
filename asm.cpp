@@ -58,6 +58,14 @@ InstrEntry instructions[] =
     INSTR(LSL,  TwoArgType),
     INSTR(ROR,  TwoArgType),
     INSTR(ROL,  TwoArgType),
+    INSTR(CLC,  NoArgsType),
+    INSTR(CLV,  NoArgsType),
+    INSTR(CLN,  NoArgsType),
+    INSTR(CLZ,  NoArgsType),
+    INSTR(SEC,  NoArgsType),
+    INSTR(SEV,  NoArgsType),
+    INSTR(SEN,  NoArgsType),
+    INSTR(SEZ,  NoArgsType),
 
     INSTR(JSR,  OneArgType),
     INSTR(RET,  NoArgsType),
@@ -334,14 +342,16 @@ bool ParseArg(LineParser& lp, ArgInfo& info)
     
     if (lp.Accept('#'))
     {
-	std::string w = lp.GetWord();
-	int value = std::stoi(w);
-	
-	info.data = value;
-	info.useData = true;
-	info.mode = IndirAutoInc;
-	info.reg = PC;
-	return true;
+	uint32_t value;
+	if(lp.GetNum(value, 0))
+	{
+	    info.data = value;
+	    info.useData = true;
+	    info.mode = IndirAutoInc;
+	    info.reg = PC;
+	    return true;
+	}
+	lp.Error("Invalid number");
     }
 
     LabelInfo label;

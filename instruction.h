@@ -77,6 +77,14 @@ enum InstrKind
     LSL,
     ROR,			/* Rotate */
     ROL,
+    CLC,
+    CLV,
+    CLN,
+    CLZ,
+    SEC,
+    SEV,
+    SEN,
+    SEZ,
 
     /* Flow control unconditional  - ignores dest operands and operand size */
     JSR = 32,

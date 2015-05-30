@@ -270,6 +270,32 @@ ExecResult CPU::RunOneInstr()
 	Mul(instr);
 	break;
 
+    case CLC:
+	flags.c = false;
+	break;
+    case CLV:
+	flags.v = false;
+	break;
+    case CLN:
+	flags.n = false;
+	break;
+    case CLZ:
+	flags.z = false;
+	break;
+
+    case SEC:
+	flags.c = true;
+	break;
+    case SEV:
+	flags.v = true;
+	break;
+    case SEN:
+	flags.n = true;
+	break;
+    case SEZ:
+	flags.z = true;
+	break;
+
     case JMP:
 	Jmp(instr);
 	break;

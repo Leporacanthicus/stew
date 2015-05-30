@@ -78,7 +78,7 @@ next5:
 next6:
 	mov	#11,r0
 	mov	#0x7f000000,r1
-	add	#0x7f000000,r2
+	add	#0x7f000000,r1
 	bvs	next7
 	br	fail
 
@@ -90,8 +90,68 @@ next7:
 	br	fail
 
 next8:
+;;; flag setting/clearing
+	mov	#13,r0
+	sec
+	bcc	fail
+	bcs	next9
+	br	fail
+
+next9:
+	mov	#14,r0
+	clc
+	bcs	fail
+	bcc	next10
+	br	fail
+
+
+next10:
+	mov	#15,r0
+	sev
+	bvc	fail
+	bvs	next11
+	br	fail
+
+next11:
+	mov	#16,r0
+	clv
+	bvs	fail
+	bvc	next12
+	br	fail
+
+next12:
+	mov	#17,r0
+	clz
+	beq	fail
+	bne	next13
+	br	fail
+
+next13:
+	mov	#18,r0
+	sez
+	bne	fail
+	beq	next14
+	br	fail
+
+next14:
+	mov	#19,r0
+	sen
+	bpl	fail
+	bmi	next15
+	br	fail
+
+next15:
+	mov	#20,r0
+	cln
+	bmi	fail
+	bpl	next16
+	br	fail
+
+next16:
+
+finished:
 	mov	success,r0
-	jmp	print
+	jsr	print
 	hlt
 
 
