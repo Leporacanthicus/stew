@@ -37,7 +37,7 @@ static bool AddOverflow(uint64_t v, uint32_t v1, uint32_t v2, uint64_t sign)
       V: set if there was arithmetic overflow as a result of the oper·
       ation; that is both operands were of the same sign and the
       result was of the opposite sign; cleared otherwise
-    */
+a    */
     return ((v & sign) != (v1 & sign)) & ((v1 & sign) == (v2 & sign));
 }
 
@@ -87,6 +87,11 @@ static uint32_t SizeFromOpSize(OperandSize opsize)
 uint32_t CPU::GetValue(AddrMode mode, RegName reg, OperandSize opsize)
 {
     size_t size = SizeFromOpSize(opsize);
+    size_t regsize = size;
+    if (reg == PC || reg == SP)
+    {
+	regsize = 4;
+    }
     switch(mode)
     {
     case Direct:
@@ -98,11 +103,11 @@ uint32_t CPU::GetValue(AddrMode mode, RegName reg, OperandSize opsize)
     case IndirAutoInc:
     {
 	uint32_t v = ReadMem(registers[reg].Value(), size);
-	registers[reg] += SizeFromOpSize(opsize);
+	registers[reg] += regsize;
 	return v;
     }
     case AutoDecIndir:
-	registers[reg] -= SizeFromOpSize(opsize);
+	registers[reg] -= regsize;
 	return ReadMem(registers[reg].Value(), size);
     }
     return 0xdeadbeef;
@@ -118,27 +123,56 @@ uint32_t CPU::GetDestValue(Instruction instr)
     return GetValue(instr.value.destMode, instr.value.dest, instr.value.size);
 }
 
+static uint32_t SignExtend(uint32_t value, OperandSize opsize)
+{
+    switch(opsize)
+    {
+    case Op32:
+	break;
+    case Op16:
+	if (value & 0x8000)
+	{
+	    value |= 0xFFFF0000;
+	}
+	break;
+    case Op8:
+	if (value & 0x80)
+	{
+	    value |= 0xFFFFFF00;
+	}
+	break;
+    }
+    return value;
+}
+
 void CPU::StoreDestValue(Instruction instr, uint32_t value)
 {
     size_t size = SizeFromOpSize(instr.value.size);
+    size_t regsize = size;
+    RegName reg = instr.value.dest;
+    if (reg == PC || reg == SP)
+    {
+	regsize = 4;
+    }
     switch(instr.value.destMode)
     {
     case Direct:
-	registers[instr.value.dest].Value(value);
+	value = SignExtend(value, instr.value.size);
+	registers[reg].Value(value);
 	break;
 
     case Indir:
-	WriteMem(registers[instr.value.dest].Value(), value, size);
+	WriteMem(registers[reg].Value(), value, size);
 	break;
 
     case IndirAutoInc:
-	WriteMem(registers[instr.value.dest].Value(), value, size);
-	registers[instr.value.dest] += size;
+	WriteMem(registers[reg].Value(), value, size);
+	registers[reg] += regsize;
 	break;
 	
     case AutoDecIndir:
-	registers[instr.value.dest] -= size;
-	WriteMem(registers[instr.value.dest].Value(), value, size);
+	registers[reg] -= regsize;
+	WriteMem(registers[reg].Value(), value, size);
 	break;
     }
 }

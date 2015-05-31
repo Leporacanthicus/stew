@@ -1,5 +1,6 @@
 #include <string>
 #include <cassert>
+#include <climits>
 #include "lineparser.h"
 
 LineParser::LineParser(const std::string& ln)
@@ -9,8 +10,35 @@ LineParser::LineParser(const std::string& ln)
 
 bool LineParser::GetNum(uint32_t& value, int base)
 {
+    bool negative = false;
     std::string w = GetWord();
-    value = std::stoi(w, 0, base);
+    if (w[0] == '-')
+    {
+	negative = true;
+	w = w.substr(1);
+    }
+    uint64_t tmp;
+    try
+    {
+	tmp = std::stoul(w, 0, base);
+    }
+    catch(...)
+    {
+	return false;
+    }
+    if (tmp > UINT_MAX)
+    {
+	return false;
+    }
+    if (negative)
+    {
+	if(tmp > (uint64_t)INT_MAX+1)
+	{
+	    return false;
+	}
+	tmp = -tmp;
+    }
+    value = tmp;
     return true;
 }
 

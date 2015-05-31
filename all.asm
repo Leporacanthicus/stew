@@ -148,6 +148,16 @@ next15:
 	br	fail
 
 next16:
+;;; Check automatic sign extension
+	mov	#21,r0
+	mov.b	#0xff,r2
+	cmp	#0xffffffff,r2
+	bne	fail
+
+	mov	#22,r0
+	mov.b	#0x80,r2
+	cmp	#0xffffff80,r2
+	bne	fail
 
 finished:
 	mov	success,r0
